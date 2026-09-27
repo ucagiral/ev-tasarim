@@ -135,3 +135,31 @@ export function topDownImage(renderer, object, box, flip) {
   ctx.putImageData(img, 0, 0);
   return new Promise((res) => c.toBlob((b) => res(URL.createObjectURL(b)), "image/png"));
 }
+
+// Nesnedeki bütün noktalar (örgü köşeleri ve nokta bulutu), nesnenin kendi koordinatında,
+// metre. Kamera tel çerçeveleri gibi çizgiler alınmaz. Çok büyükse eşit aralıkla seyreltilir.
+export function collectPoints(object, max = 300000) {
+  object.updateMatrixWorld(true);
+  const rootInv = new THREE.Matrix4().copy(object.matrixWorld).invert();
+  const parts = [];
+  let total = 0;
+  object.traverse((o) => {
+    if (!(o.isMesh || o.isPoints) || o.isLine) return;
+    const pos = o.geometry && o.geometry.getAttribute("position");
+    if (!pos) return;
+    parts.push({ pos, m: new THREE.Matrix4().multiplyMatrices(rootInv, o.matrixWorld) });
+    total += pos.count;
+  });
+  const stride = Math.max(1, Math.ceil(total / max));
+  const out = new Float32Array(Math.ceil(total / stride) * 3 + 3);
+  const v = new THREE.Vector3();
+  let k = 0, idx = 0;
+  for (const { pos, m } of parts) {
+    for (let i = 0; i < pos.count; i++, idx++) {
+      if (idx % stride) continue;
+      v.fromBufferAttribute(pos, i).applyMatrix4(m);
+      out[k++] = v.x; out[k++] = v.y; out[k++] = v.z;
+    }
+  }
+  return out.subarray(0, k);
+}

@@ -811,12 +811,25 @@
   function a3(a, b) { return v3(a.x + b.x, a.y + b.y, a.z + b.z); }
   function n3(a) { var l = Math.sqrt(d3(a, a)); return l ? s3(a, 1 / l) : a; }
 
-  // Dokunulan dört köşeyi sırala: alttaki iki (y büyük) sol-sağ, üstteki iki sol-sağ.
+  // Dokunulan dört köşeyi sırala. Önce ağırlık merkezi çevresinde açıya göre dizilir (böylece
+  // dörtgen kendini kesmez), sonra ortalama y'si en büyük kenar alt kenar sayılır. Salt y'ye
+  // göre sıralamak, kapı yandan ve eğik çekildiğinde üst köşelerden birini alta koyabiliyordu.
   function sortRectCorners(pts) {
-    var s = pts.slice().sort(function (a, b) { return a.y - b.y; });
-    var top = s.slice(0, 2).sort(function (a, b) { return a.x - b.x; });
-    var bot = s.slice(2).sort(function (a, b) { return a.x - b.x; });
-    return { bl: bot[0], br: bot[1], tr: top[1], tl: top[0] };
+    var cx = 0, cy = 0;
+    pts.forEach(function (p) { cx += p.x / pts.length; cy += p.y / pts.length; });
+    var ring = pts.slice().sort(function (a, b) { return Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx); });
+    var best = 0, bestY = -Infinity;
+    for (var i = 0; i < 4; i++) {
+      var my = (ring[i].y + ring[(i + 1) % 4].y) / 2;
+      if (my > bestY) { bestY = my; best = i; }
+    }
+    var a = ring[best], b = ring[(best + 1) % 4];
+    var bl = a.x <= b.x ? a : b, br = a.x <= b.x ? b : a;
+    // Halkada br'den sonra gelen, br'nin karşısındaki üst köşedir.
+    var ib = ring.indexOf(br), il = ring.indexOf(bl);
+    var step = (ib - il + 4) % 4 === 1 ? 1 : -1;
+    var tr = ring[(ib + step + 4) % 4], tl = ring[(il - step + 4) % 4];
+    return { bl: bl, br: br, tr: tr, tl: tl };
   }
 
   // Kapıdan kamera pozu. cam = {f, cx, cy}; doorHeight cm.
@@ -911,6 +924,112 @@
     return { width: [Math.min.apply(null, W), Math.max.apply(null, W)], depth: [Math.min.apply(null, D), Math.max.apply(null, D)], samples: W.length };
   }
 
+  // ------------------------------------------------------------------ taramadan oda
+  //
+  // Birden çok fotoğraftan üretilmiş nokta bulutundan (Depth Anything 3'ün scene.glb'si
+  // gibi; metre, y yaklaşık yukarı) dikdörtgen oda: yukarı yön ve zemin RANSAC ile,
+  // duvar yönleri iz düşümü histogramının keskinliğiyle, duvar yerleri uçlardaki
+  // yoğunluk tepeleriyle bulunur. Kapı gerekmez.
+  //
+  // pts: Float32Array/Array [x,y,z, x,y,z, …] metre. opts.rand: tohumlu rastgele.
+  function roomFromPointCloud(pts, opts) {
+    opts = opts || {};
+    var rand = opts.rand || seededRandom(1);
+    var n = Math.floor(pts.length / 3);
+    if (n < 500) return { error: "taramada yeterli nokta yok (" + n + ")" };
+    // En fazla 60 000 noktaya seyrelt (her k'ıncı).
+    var stride = Math.max(1, Math.floor(n / 60000));
+    var P = [];
+    for (var i = 0; i < n; i += stride) {
+      var x = pts[i * 3], y = pts[i * 3 + 1], z = pts[i * 3 + 2];
+      if (isFinite(x) && isFinite(y) && isFinite(z)) P.push(v3(x, y, z));
+    }
+    var hint = n3(opts.upHint || v3(0, 1, 0));
+
+    // 1) Yukarı yön: ipucuna 35°'den yakın normalli en kalabalık düzlem (zemin ya da tavan).
+    var bestN = null, bestCount = -1, tol = 0.03, cosMax = Math.cos(35 * Math.PI / 180);
+    var probe = P.length > 8000 ? P.filter(function (_, k) { return k % Math.ceil(P.length / 8000) === 0; }) : P;
+    for (var it = 0; it < 500; it++) {
+      var a = P[Math.floor(rand() * P.length)], b = P[Math.floor(rand() * P.length)], c = P[Math.floor(rand() * P.length)];
+      var nn = c3(a3(b, s3(a, -1)), a3(c, s3(a, -1)));
+      var l = Math.sqrt(d3(nn, nn));
+      if (l < 1e-9) continue;
+      nn = s3(nn, 1 / l);
+      if (d3(nn, hint) < 0) nn = s3(nn, -1);
+      if (d3(nn, hint) < cosMax) continue;
+      var off = d3(nn, a), cnt = 0;
+      for (var k = 0; k < probe.length; k++) if (Math.abs(d3(nn, probe[k]) - off) < tol) cnt++;
+      if (cnt > bestCount) { bestCount = cnt; bestN = nn; }
+    }
+    if (!bestN) return { error: "zemin ya da tavan düzlemi bulunamadı" };
+    // Normali o düzlemin iç noktalarıyla incelt (en küçük kareler yerine ortalama çapraz çarpım yeterli).
+    var up = bestN;
+
+    // 2) Yükseklikler: zemin = alt yarının en kalabalık 2 cm'lik dilimi; tavan = üst yarınınki.
+    var H = P.map(function (p) { return d3(up, p); });
+    var hs = H.slice().sort(function (p, q) { return p - q; });
+    var hMin = hs[Math.floor(hs.length * 0.005)], hMax = hs[Math.floor(hs.length * 0.995)];
+    var bins = {}, bw = 0.02;
+    H.forEach(function (h) { var key = Math.round(h / bw); bins[key] = (bins[key] || 0) + 1; });
+    var mid = (hMin + hMax) / 2, floorKey = null, ceilKey = null, fBest = 0, cBest = 0;
+    Object.keys(bins).forEach(function (key) {
+      var h = key * bw, c = bins[key];
+      if (h < mid && c > fBest) { fBest = c; floorKey = +key; }
+      if (h >= mid && c > cBest) { cBest = c; ceilKey = +key; }
+    });
+    var floorH = floorKey * bw;
+    var ceilH = cBest > fBest * 0.15 ? ceilKey * bw : null;
+    var height = ceilH != null ? ceilH - floorH : null;
+
+    // 3) Duvar noktaları: zeminden 30 cm yukarıda, tavandan 20 cm aşağıda.
+    var e1 = n3(c3(up, Math.abs(up.x) < 0.9 ? v3(1, 0, 0) : v3(0, 0, 1)));
+    var e2 = c3(up, e1);
+    var top = ceilH != null ? ceilH - 0.2 : floorH + 2.2;
+    var W2 = [];
+    P.forEach(function (p, k) { if (H[k] > floorH + 0.3 && H[k] < top) W2.push({ x: d3(e1, p), y: d3(e2, p) }); });
+    if (W2.length < 200) return { error: "duvar noktası çok az; odanın duvarları fotoğraflarda görünmüyor olabilir" };
+
+    // 4) Duvar yönü: dönen iz düşümlerin histogramı en keskin (duvarlar tek çizgide) olduğu açı.
+    function sharpness(th) {
+      var co = Math.cos(th), si = Math.sin(th), hx = {}, hy = {}, s = 0;
+      for (var k = 0; k < W2.length; k++) {
+        var X = Math.round((co * W2[k].x + si * W2[k].y) / 0.05), Y = Math.round((-si * W2[k].x + co * W2[k].y) / 0.05);
+        hx[X] = (hx[X] || 0) + 1; hy[Y] = (hy[Y] || 0) + 1;
+      }
+      for (var key in hx) s += hx[key] * hx[key];
+      for (key in hy) s += hy[key] * hy[key];
+      return s;
+    }
+    var bestTh = 0, bestS = -1;
+    for (var deg = 0; deg < 90; deg += 1) { var sc = sharpness(deg * Math.PI / 180); if (sc > bestS) { bestS = sc; bestTh = deg; } }
+    for (var fine = bestTh - 1; fine <= bestTh + 1; fine += 0.1) { var sc2 = sharpness(fine * Math.PI / 180); if (sc2 > bestS) { bestS = sc2; bestTh = fine; } }
+    var th = bestTh * Math.PI / 180, co = Math.cos(th), si = Math.sin(th);
+    var R = W2.map(function (p) { return { x: co * p.x + si * p.y, y: -si * p.x + co * p.y }; });
+
+    // 5) Duvar yerleri: her uçta, %1–%99 aralığının 40 cm yakınındaki en yoğun 5 cm'lik dilim.
+    function wallAt(vals, low) {
+      var s = vals.slice().sort(function (p, q) { return p - q; });
+      var edge = low ? s[Math.floor(s.length * 0.01)] : s[Math.floor(s.length * 0.99)];
+      var h = {}, bwid = 0.05;
+      s.forEach(function (v) { if (Math.abs(v - edge) < 0.4) { var key = Math.round(v / bwid); h[key] = (h[key] || 0) + 1; } });
+      var bk = null, bc = -1;
+      Object.keys(h).forEach(function (key) { if (h[key] > bc) { bc = h[key]; bk = +key; } });
+      return { pos: bk * bwid, count: bc };
+    }
+    var xs = R.map(function (p) { return p.x; }), ys = R.map(function (p) { return p.y; });
+    var xl = wallAt(xs, true), xr = wallAt(xs, false), yl = wallAt(ys, true), yr = wallAt(ys, false);
+    var width = xr.pos - xl.pos, depth = yr.pos - yl.pos;
+    var warnings = [];
+    var minWall = Math.min(xl.count, xr.count, yl.count, yr.count), maxWall = Math.max(xl.count, xr.count, yl.count, yr.count);
+    if (minWall < maxWall * 0.25) warnings.push("bir duvar taramada çok az görünüyor; o yöndeki ölçü tahminidir");
+    if (height != null && (height < 2.0 || height > 3.8)) warnings.push("tavan yüksekliği " + Math.round(height * 100) + " cm çıktı; ölçek şüpheli olabilir");
+    if (height == null) warnings.push("tavan bulunamadı; ölçek denetlenemedi");
+    return {
+      width: width * 100, depth: depth * 100, height: height != null ? height * 100 : null,
+      up: up, floorH: floorH, angleDeg: bestTh, points: P.length, wallPoints: W2.length, warnings: warnings
+    };
+  }
+
   function seededRandom(seed) {
     var s = seed >>> 0 || 1;
     return function () { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
@@ -990,6 +1109,7 @@
     projectPoint: projectPoint,
     roomFromPhoto: roomFromPhoto,
     photoRoomSpread: photoRoomSpread,
+    roomFromPointCloud: roomFromPointCloud,
     seededRandom: seededRandom
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
