@@ -50,7 +50,8 @@ Umut her fotoğrafta kapı olmadığını ve odanın şeklini fotoğrafların ke
 SADECE FOTOĞRAFLARDAN ODA YARATSIN. BEN BİR ŞEY SEÇMEK İSTEMİYORUM." Bu yüzden asıl yol:
 fotoğraf eklenir → uygulama Depth Anything 3 demosuna kendisi gönderir → `roomFromPointCloud`
 → oda onaysız eklenir. Kullanıcıdan seçim, dokunma ya da ölçü isteyen bir adımı bu yola
-geri koyma. Kapı yöntemi ve elle scene.glb yalnız yedek.
+geri koyma. Kapı işaretleme arayüzden kaldırıldı
+("kapı işaretlemek istemiyorum"); geri koyma. Elle scene.glb yalnız yedek.
 
 Tarama katmanları (LiDAR, model, splat) referanstır; bir taramadan oda yalnız kullanıcı
 "Oda çıkar" dediğinde ya da scene.glb bıraktığında, "tahmini" işaretiyle türetilir. Fotoğraf derinliği görseldir; ondan

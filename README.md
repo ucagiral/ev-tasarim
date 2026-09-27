@@ -51,10 +51,13 @@ yüksekliğini çıkarır ve odayı plana ekler ("tahmini" işaretli). Fotoğraf
 - İyi sonuç: her yönden, birbiriyle örtüşen 5–20 fotoğraf; duvar dipleri ve tavan görünsün.
 - Fotoğraflar Hugging Face'e gider (Umut'un kararı). Demo meşgulse ya da kotası dolmuşsa
   neden gösterilir ve "Tekrar dene" çıkar.
-- Bir odaya bağlı grupta fotoğraf eklemek oda oluşturmaz; yalnız "Odaya bağlı değil"
-  grubunda.
-- Otomatik olmazsa elle yollar Fotoğraf sekmesinde "Otomatik olmazsa" altında: demoyu elle
-  kullanıp scene.glb'yi bırakmak ya da tek fotoğrafta kapıyı işaretlemek.
+- Bir odanın grubundaki fotoğraflarla "Bu odayı fotoğraflardan yeniden ölç" o odayı
+  yeniden boyutlandırır.
+- Otomatik çalışmazsa: demoyu elle kullanıp scene.glb'yi bırakmak (Fotoğraf sekmesinde
+  "Otomatik çalışmazsa").
+- Kapıyı ya da köşeleri işaretleme yolu **kaldırıldı** (Umut: "kapı işaretlemek
+  istemiyorum"). Motordaki kapı geometrisi (`poseFromDoor`, `roomFromPhoto`) testleriyle
+  duruyor ama arayüzde yok.
 
 Nasıl (`roomFromPointCloud`): yukarı yön ve zemin/tavan RANSAC ile düzlem aranarak, duvar
 yönü duvar noktalarının iz düşüm histogramının en keskin olduğu açıyla, duvar yerleri
@@ -66,33 +69,6 @@ huggingface.co'ya erişemiyor. Uç adları ve argümanlar demonun kaynak kodunda
 (`gradio_app.py`) alındı ve çalışma anında demonun kendi arayüz tanımıyla (`view_api`)
 doğrulanıyor; uyuşmazsa çağırmadan önce durup nedenini söylüyor. Akışın geri kalanı
 (fotoğraf → 3B → oda → plan) sahte bir 3B yanıtıyla uçtan uca test ediliyor.
-
-## Tek fotoğraftan, kapıyla
-
-Metreyle ölçmek gerekmez. **Fotoğraf** sekmesinde fotoğrafın **Oda çıkar** düğmesi:
-
-1. Kapının dört köşesine dokunun (sıra önemsiz). Kapı yüksekliği varsayılan 200 cm'dir —
-   Türkiye'de en yaygın iç kapı kanadı; sizinki farklıysa yazın, sonuç doğrudan bununla
-   ölçeklenir.
-2. Odanın zemin köşelerine dokunun (duvarların zemine değdiği yerler). Karşı duvarın
-   köşeleri derinliği verir; göremiyorsanız "köşede durarak çektim" kameranın yerini köşe
-   sayar.
-3. En ve derinlik, dokunuşlar 3 piksel kaysa çıkabilecek aralıkla gösterilir. "Plana oda
-   olarak ekle" kapısıyla birlikte odayı ekler; oda listesinde **tahmini** diye işaretlenir,
-   planda sürükleyerek düzeltilir.
-
-Nasıl: kapının dört köşesi ve odak uzaklığı (fotoğrafın EXIF'inden; yoksa lens seçilir)
-kameranın kapıya göre konumunu ve eğimini verir. Kapının alt kenarı zeminde olduğu için
-zemin düzlemi de bilinir; dokunulan her zemin noktası bu düzlemle kesiştirilir. Kapının
-eni gerekmez, görüntüden çıkar. Varsayım: oda dikdörtgen, kapı bir duvarda.
-
-İyi sonuç için: **0.5x** lensle, odanın bir köşesinden, kapı ve karşı köşeler aynı karede.
-iPhone 16 Plus'ın 1x lensiyle (26 mm) bu kadar geniş bir açı genellikle sığmaz. Telefonu
-biraz aşağı eğin: ufka yakın zemin köşeleri küçük dokunma hatalarını büyütür.
-
-Fotoğraflar oda yokken de eklenebilir; sürükleyip bırakmak da olur. iPhone'un HEIC
-fotoğrafları tarayıcı gösteremiyorsa JPEG'e çevrilir (Safari gösterir; Chrome/Edge/Firefox
-göstermez).
 
 ## Tarama ve fotoğraftan 3B
 
@@ -135,7 +111,6 @@ Kaynaklar ve neden bu araçlar: [`docs/sources.md`](docs/sources.md).
 | `view3d.js`, `furniture3d.js`, `textures.js` | three.js sahnesi, ilkel geometriden mobilya, canvas'ta çizilen zemin dokuları. |
 | `layers.js` | Tarama katmanları: dosyayı açma (USDZ/glTF/OBJ/PLY, splat), plan altlığı. |
 | `depth.js` | Fotoğraftan derinlik (transformers.js) ve kabartma görüntüleyici. |
-| `photoroom.js` | Fotoğraftan oda aracı (dokunma ve gösterim; hesap `engine.js`'de). |
 | `media.js` | Görsel hazırlama: HEIC→JPEG (heic-to), odak uzaklığı (exifr). |
 | `reconstruct.js` | Fotoğrafları Depth Anything 3 demosuna gönderip scene.glb alır (`@gradio/client`). |
 | `store.js` | IndexedDB: proje, fotoğraflar, katmanlar. |

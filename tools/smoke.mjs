@@ -342,66 +342,6 @@ await step("sürükle-bırak ile fotoğraf eklenir", async () => {
   await page.waitForFunction((n) => window.__ev.S.photos.length === n + 1, before);
 });
 
-await step("fotoğraftan oda: sentetik odanın fotoğrafından en ve derinlik çıkar", async () => {
-  // three.js ile bilinen bir oda (X −100…280, Z 0…420 cm; kapı X 0…85, 205 cm) 0.5x lensle
-  // karşı köşeden "fotoğraflanır"; noktalar bu kameranın izdüşümünden hesaplanıp tıklanır.
-  const shot = await ev(async () => {
-    const THREE = await import("three");
-    const W = 2016, H = 1512, f = window.__ev.E.focalPx(13, W, H);
-    const r = new THREE.WebGLRenderer({ preserveDrawingBuffer: true });
-    r.setSize(W, H, false);
-    const scene = new THREE.Scene();
-    scene.add(new THREE.AmbientLight(0xffffff, 1.2));
-    const m = (c) => new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide });
-    const plane = (w, h, mat, pos, rot) => { const p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat); p.position.set(...pos); p.rotation.set(...rot); scene.add(p); };
-    plane(3.8, 4.2, m(0xb08a60), [0.9, 0, 2.1], [-Math.PI / 2, 0, 0]);          // zemin
-    plane(3.8, 2.6, m(0xe8e2d8), [0.9, 1.3, 0], [0, 0, 0]);                    // kapı duvarı
-    plane(4.2, 2.6, m(0xd8d2c8), [-1.0, 1.3, 2.1], [0, Math.PI / 2, 0]);       // sol duvar
-    plane(4.2, 2.6, m(0xd0cabe), [2.8, 1.3, 2.1], [0, -Math.PI / 2, 0]);       // sağ duvar
-    plane(0.85, 2.05, m(0x5a3a22), [0.425, 1.025, 0.005], [0, 0, 0]);          // kapı
-    const cam = new THREE.PerspectiveCamera(2 * Math.atan(H / 2 / f) * 180 / Math.PI, W / H, 0.05, 50);
-    // Telefon hafif aşağı eğik: zemin köşeleri ufkun belirgin altında kalır.
-    cam.position.set(2.6, 1.5, 4.0);
-    cam.lookAt(1.2, 0.2, 2.2);
-    cam.updateMatrixWorld();
-    r.render(scene, cam);
-    const px = (x, y, z) => { const v = new THREE.Vector3(x / 100, y / 100, z / 100).project(cam); return { x: (v.x + 1) / 2 * W, y: (1 - v.y) / 2 * H }; };
-    const door = [px(0, 0, 0), px(85, 0, 0), px(85, 205, 0), px(0, 205, 0)];
-    const floor = [px(-100, 0, 0), px(280, 0, 0), px(-100, 0, 420)];
-    const blob = await new Promise((res) => r.domElement.toBlob(res, "image/png"));
-    return { door, floor, W, H, bytes: Array.from(new Uint8Array(await blob.arrayBuffer())) };
-  });
-  const direct = await ev((sh) => window.__ev.E.roomFromPhoto({ door: sh.door, floor: sh.floor, image: { w: sh.W, h: sh.H }, f35: 13, doorHeight: 205 }), { door: shot.door, floor: shot.floor, W: shot.W, H: shot.H });
-  assert(Math.abs(direct.width - 380) < 1 && Math.abs(direct.depth - 420) < 1, `motor doğrudan: ${direct.width} × ${direct.depth}`);
-  const inside = [...shot.door, ...shot.floor].every((p) => p.x > 0 && p.y > 0 && p.x < shot.W && p.y < shot.H);
-  assert(inside, "sentetik noktalar kadraj dışında: " + JSON.stringify(shot));
-  await page.click("#tabs [data-tab=photos]");
-  await page.setInputFiles("#photo-input", { name: "sentetik-oda.png", mimeType: "image/png", buffer: Buffer.from(shot.bytes) });
-  await page.waitForFunction(() => window.__ev.S.photos.some((p) => p.name === "sentetik-oda.png"));
-  const pid = await ev(() => window.__ev.S.photos.find((p) => p.name === "sentetik-oda.png").id);
-  await page.click(`.photo [data-act=room-photo][data-id="${pid}"]`);
-  await page.waitForFunction(() => document.querySelector(".pr-svg")?.getAttribute("viewBox"));
-  await page.selectOption("#pr-lens", "13");
-  await page.fill("#pr-dh", "205");
-  await page.press("#pr-dh", "Enter");
-  const box = await page.locator(".pr-svg").boundingBox();
-  const tap = (p) => page.mouse.click(box.x + p.x / shot.W * box.width, box.y + p.y / shot.H * box.height);
-  for (const p of shot.door) await tap(p);
-  for (const p of shot.floor) await tap(p);
-  const counts = await ev(() => ({ door: document.querySelectorAll(".pr-pt.door").length, floor: document.querySelectorAll(".pr-pt.floor").length }));
-  assert(counts.door === 4 && counts.floor === 3, "noktalar: " + JSON.stringify(counts) + " " + JSON.stringify(shot.door.concat(shot.floor).map((p) => [Math.round(p.x), Math.round(p.y)])));
-  await page.waitForSelector("#pr-add");
-  await page.screenshot({ path: join(SHOTS, "10-photo-room.png") });
-  await page.selectOption("#pr-kind", "salon");
-  await page.click("#pr-add");
-  const room = await ev(() => { const { S, E } = window.__ev; const r = S.project.rooms.at(-1); const w = E.walls(r); return { w: w[0].length, d: w[1].length, est: r.estimate, doors: r.openings.length }; });
-  // Dokunuş ekran pikseline yuvarlanır (görüntü küçültülmüş gösteriliyor); %4 pay.
-  assert(Math.abs(room.w - 380) < 16, `en ${room.w}`);
-  assert(Math.abs(room.d - 420) < 17, `derinlik ${room.d}`);
-  assert(room.est && room.est.source === "photo", "tahmini işareti yok");
-  assert(room.doors === 1, "kapı eklenmedi");
-});
-
 await step("taramadan oda: scene.glb bırakılınca oda kendiliğinden çıkar", async () => {
   // Depth Anything 3 çıktısını taklit eden nokta bulutu: 3.8 × 4.2 × 2.6 m, eğik ve dönük.
   await ev(async () => {
@@ -477,8 +417,25 @@ await step("otomatik: fotoğraflar eklenince oda kendiliğinden oluşur (sahte D
   await page.screenshot({ path: join(SHOTS, "12-auto-room.png") });
 });
 
+await step("otomatik: 'Bu fotoğraflardan oda oluştur' düğmesi kapı sormadan çalışır", async () => {
+  assert(await page.locator("[data-act=room-photo]").count() === 0, "kapı aracı düğmesi hâlâ var");
+  await page.click("#tabs [data-tab=photos]");
+  await page.selectOption("#photo-room", "");
+  const before = await ev(() => window.__ev.S.project.rooms.length);
+  await ev(() => { window.__evNoAutoRoom = true; });
+  const png = await ev(async () => {
+    const c = document.createElement("canvas"); c.width = 12; c.height = 12;
+    return Array.from(new Uint8Array(await (await new Promise((r) => c.toBlob(r))).arrayBuffer()));
+  });
+  await page.setInputFiles("#photo-input", { name: "y.png", mimeType: "image/png", buffer: Buffer.from(png) });
+  await page.waitForSelector("[data-act=auto-room]");
+  await page.click("[data-act=auto-room]");
+  await page.waitForFunction((n) => window.__ev.S.project.rooms.length === n + 1, before, { timeout: 30000 });
+  assert(await page.locator(".pr-svg").count() === 0, "kapı işaretleme penceresi açıldı");
+});
+
 await step("otomatik: demo hata verirse nedeni ve Tekrar dene gösterilir", async () => {
-  await ev(() => { window.__evReconstruct = async () => { throw new Error("GPU kotası doldu (sahte)"); }; });
+  await ev(() => { window.__evNoAutoRoom = false; window.__evReconstruct = async () => { throw new Error("GPU kotası doldu (sahte)"); }; });
   await page.click("#tabs [data-tab=photos]");
   await page.selectOption("#photo-room", "");
   const png = await ev(async () => {
