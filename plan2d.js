@@ -107,6 +107,14 @@ export class Plan2D {
       parts.push(`<polygon points="${pts}" class="room-floor${room.id === selRoomId ? " selected" : ""}" data-kind="room" data-id="${room.id}"/>`);
     });
 
+    // Tarama altlıkları (LiDAR / model): üstten kesit görüntüsü, oda zemininin üstünde, duvar ve mobilyanın altında — üzerine çizilebilsin diye.
+    (this.api.get().layers || []).forEach((L) => {
+      if (!L.planVisible || !L.image) return;
+      const t = L.transform, b = L.box, k = t.scale * 100;
+      const y0 = t.flip ? -b.maxZ : b.minZ;
+      parts.push(`<g transform="translate(${t.x} ${t.y}) rotate(${t.rot}) scale(${k})" class="underlay"><image href="${L.image}" x="${b.minX}" y="${y0}" width="${b.maxX - b.minX}" height="${b.maxZ - b.minZ}" preserveAspectRatio="none"/></g>`);
+    });
+
     // Kapı açılma alanları ve mobilya (duvarların altında kalsın)
     const bad = new Map();
     (issues || []).forEach((i) => { if (!bad.has(i.itemId)) bad.set(i.itemId, i.text); });

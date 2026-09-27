@@ -19,9 +19,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: node tools/selftest.mjs
+      # Pages'i açmak repo sahibinin işi: Settings → Pages → Source: GitHub Actions.
+      # İş akışının token'ı siteyi oluşturamaz; açılana kadar bu adım başarısız olur.
       - uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - run: mkdir _site && cp -r index.html app.css *.js data styles .nojekyll _site/
       - uses: actions/upload-pages-artifact@v3
       - id: deployment

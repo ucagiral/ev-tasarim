@@ -35,13 +35,20 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ viewport: { width: 1500, height: 900 } });
 const errors = [];
 page.on("pageerror", (e) => errors.push("pageerror: " + e.message));
-page.on("console", (m) => { if (m.type() === "error") errors.push("console: " + m.text()); });
-page.on("dialog", (d) => d.type() === "prompt" ? d.accept("Yeni ad") : d.accept());
-await page.route("https://cdn.jsdelivr.net/npm/three@*/**", async (route) => {
-  const u = new URL(route.request().url());
-  const rel = u.pathname.replace(/^\/npm\/three@[^/]+\//, "");
-  route.fulfill({ path: join(ROOT, "node_modules", "three", rel), contentType: "text/javascript" });
+page.on("console", (m) => {
+  // Derinlik adımında bilerek engellenen model indirmesi hata olarak sayılmaz.
+  if (m.type() === "error" && !/huggingface|Failed to fetch|net::ERR_FAILED|Derinlik/i.test(m.text())) errors.push("console: " + m.text());
 });
+page.on("dialog", (d) => d.type() === "prompt" ? d.accept("Yeni ad") : d.accept());
+// CDN'deki paketleri node_modules'tan ver: /npm/<paket>@<sürüm>/<yol>
+await page.route("https://cdn.jsdelivr.net/npm/**", async (route) => {
+  const u = new URL(route.request().url());
+  const m = /^\/npm\/((?:@[^/]+\/)?[^@/]+)@[^/]+\/(.*)$/.exec(u.pathname);
+  if (!m) return route.abort();
+  route.fulfill({ path: join(ROOT, "node_modules", m[1], m[2]), contentType: m[2].endsWith(".wasm") ? "application/wasm" : "text/javascript" });
+});
+// Model dosyaları bu ortamdan indirilemez; derinlik adımı hata yolunu sınar.
+await page.route("https://huggingface.co/**", (route) => route.abort());
 
 let failed = 0;
 async function step(name, fn) {
@@ -197,6 +204,98 @@ await step("yalnız 3B ve yalnız 2B görünüm", async () => {
   await page.waitForTimeout(400);
   await page.screenshot({ path: join(SHOTS, "5-plan.png") });
   await page.click("[data-layout=split]");
+});
+
+await step("3B model katmanı (GLB) yüklenir, planda altlık olur", async () => {
+  const r = await ev(async () => {
+    const THREE = await import("three");
+    const { GLTFExporter } = await import("three/addons/exporters/GLTFExporter.js");
+    // 4×3 m'lik, 2.5 m yüksek duvarlı bir "tarama"
+    const g = new THREE.Group();
+    const m = new THREE.MeshStandardMaterial({ color: 0x999999 });
+    const wall = (w, d, x, z) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, 2.5, d), m); b.position.set(x, 1.25, z); g.add(b); };
+    wall(4, 0.1, 2, 0); wall(4, 0.1, 2, 3); wall(0.1, 3, 0, 1.5); wall(0.1, 3, 4, 1.5);
+    const floor = new THREE.Mesh(new THREE.BoxGeometry(4, 0.02, 3), m); floor.position.set(2, 0, 1.5); g.add(floor);
+    const glb = await new GLTFExporter().parseAsync(g, { binary: true });
+    await window.__ev.addLayerFile(new File([glb], "tarama.glb"));
+    const L = window.__ev.S.layers.at(-1);
+    return { err: L.error, box: L.box, image: !!L.image, t: L.transform };
+  });
+  assert(!r.err, r.err);
+  assert(Math.abs(r.box.maxX - r.box.minX - 4.1) < 0.01, JSON.stringify(r.box));
+  assert(r.image, "altlık görüntüsü yok");
+  await page.waitForTimeout(400);
+  assert(await page.locator(".plan-svg .underlay image").count() === 1, "planda altlık yok");
+  await page.click("#tabs [data-tab=layers]");
+  await page.fill(`[data-act=layer-t][data-field=rot]`, "30");
+  await page.press(`[data-act=layer-t][data-field=rot]`, "Enter");
+  await page.locator(`[data-act=layer-t][data-field=rot]`).blur();
+  const rot = await ev(() => window.__ev.S.layers.at(-1).transform.rot);
+  assert(rot === 30, `açı ${rot}`);
+  await page.screenshot({ path: join(SHOTS, "8-layer.png") });
+});
+
+await step("LiDAR biçimi (USDZ) yüklenir", async () => {
+  const r = await ev(async () => {
+    const THREE = await import("three");
+    const { USDZExporter } = await import("three/addons/exporters/USDZExporter.js");
+    const scene = new THREE.Scene();
+    const b = new THREE.Mesh(new THREE.BoxGeometry(3, 2.4, 0.1), new THREE.MeshStandardMaterial({ color: 0xcccccc }));
+    b.position.set(1.5, 1.2, 0);
+    scene.add(b);
+    const usdz = await new USDZExporter().parseAsync(scene);
+    await window.__ev.addLayerFile(new File([usdz], "roomplan.usdz"));
+    const L = window.__ev.S.layers.at(-1);
+    return { err: L.error, w: L.box && L.box.maxX - L.box.minX };
+  });
+  assert(!r.err, r.err);
+  assert(Math.abs(r.w - 3) < 0.01, `en ${r.w}`);
+});
+
+await step("video splat'i (.ply, Gaussian) yüklenir ve 3B'de çizilir", async () => {
+  // 3DGS .ply: x y z, f_dc_0..2, opacity, scale_0..2, rot_0..3 — hepsi float32.
+  const N = 400, props = ["x", "y", "z", "f_dc_0", "f_dc_1", "f_dc_2", "opacity", "scale_0", "scale_1", "scale_2", "rot_0", "rot_1", "rot_2", "rot_3"];
+  const header = `ply\nformat binary_little_endian 1.0\nelement vertex ${N}\n${props.map((p) => `property float ${p}`).join("\n")}\nend_header\n`;
+  const body = new Float32Array(N * props.length);
+  for (let i = 0; i < N; i++) {
+    const a = i / N * Math.PI * 2;
+    body.set([Math.cos(a), (i % 20) / 10, Math.sin(a), 1.2, -0.5, -0.5, 3, -3.5, -3.5, -3.5, 1, 0, 0, 0], i * props.length);
+  }
+  const bytes = [...new TextEncoder().encode(header), ...new Uint8Array(body.buffer)];
+  const r = await ev(async (arr) => {
+    await window.__ev.addLayerFile(new File([new Uint8Array(arr)], "video.ply"));
+    const L = window.__ev.S.layers.at(-1);
+    return { err: L.error, kind: L.kind, box: L.box };
+  }, bytes);
+  assert(r.kind === "splat", r.kind);
+  assert(!r.err, r.err);
+  assert(r.box && r.box.maxX > 0.9, JSON.stringify(r.box));
+  await page.click("[data-layout='3d']");
+  await page.waitForTimeout(1200);
+  await page.screenshot({ path: join(SHOTS, "9-splat.png") });
+  await page.click("[data-layout=split]");
+});
+
+await step("katmanlar yeniden yüklemede geri gelir", async () => {
+  await page.reload();
+  await page.waitForFunction(() => window.__ev && window.__ev.S.layers.length === 3 && window.__ev.S.layers.every((L) => L.box || L.error), null, { timeout: 20000 });
+  const r = await ev(() => window.__ev.S.layers.map((L) => ({ n: L.name, e: L.error, rot: L.transform.rot })));
+  assert(r.every((x) => !x.e), JSON.stringify(r));
+  assert(r.find((x) => x.n === "tarama.glb").rot === 30, "dönüşüm kaybolmuş: " + JSON.stringify(r));
+});
+
+await step("fotoğraf eklenir; derinlik modeli indirilemezse anlaşılır hata", async () => {
+  await page.click("#tabs [data-tab=photos]");
+  const png = await ev(async () => {
+    const c = document.createElement("canvas"); c.width = 64; c.height = 48;
+    const g = c.getContext("2d"); g.fillStyle = "#8a6"; g.fillRect(0, 0, 64, 48);
+    return Array.from(new Uint8Array(await (await new Promise((r) => c.toBlob(r))).arrayBuffer()));
+  });
+  await page.setInputFiles("#photo-input", { name: "oda.png", mimeType: "image/png", buffer: Buffer.from(png) });
+  await page.waitForSelector(".photo img");
+  await page.click(".photo .depth-btn");
+  await page.waitForFunction(() => /çıkarılamadı/.test(document.getElementById("depth-status")?.textContent || ""), null, { timeout: 30000 });
+  await page.click("dialog[open] button.primary");
 });
 
 await step("kayıt yeniden yüklemede geri gelir", async () => {

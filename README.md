@@ -9,13 +9,18 @@ içermez.
 
 ## Çalıştırma
 
-- **Yayında:** GitHub Pages açıksa `https://ucagiral.github.io/ev-tasarim/`.
-  (Ayarlar → Pages → Branch: `main`, klasör: `/ (root)`.)
+- **Yayında:** `https://ucagiral.github.io/ev-tasarim/`. Bir kez açılması gerekir:
+  repo **Settings → Pages → Build and deployment → Source: GitHub Actions**. Sonra her
+  `main` güncellemesinde `.github/workflows/pages.yml` testleri çalıştırıp yayınlar
+  (açılmadan önceki çalıştırmalar "Create Pages site failed" ile düşer; ayar yapılınca
+  Actions → pages → *Re-run* yeterli).
 - **Yerelde:** dosyalar bir web sunucusundan açılmalı, `file://` ile değil:
   `npx http-server -c-1 -p 8080 .` ya da `python3 -m http.server 8080`, sonra
   `http://localhost:8080`.
 
-three.js `cdn.jsdelivr.net` üzerinden yüklenir (sürüm `index.html`'deki importmap'te sabit).
+three.js, Spark ve transformers.js `cdn.jsdelivr.net` üzerinden yüklenir (sürümler
+`index.html`'deki importmap'te sabit). Derinlik modeli ilk kullanımda `huggingface.co`'dan
+iner.
 
 ## Neler yapılabiliyor (1. aşama)
 
@@ -35,14 +40,34 @@ three.js `cdn.jsdelivr.net` üzerinden yüklenir (sürüm `index.html`'deki impo
 - **Fotoğraflar:** her odaya referans fotoğrafı ekle.
 - Geri al / yinele, PNG görüntü indirme, JSON dışa/içe aktarma.
 
-## Sonraki aşamalar
+## Tarama ve fotoğraftan 3B
 
-| Aşama | Ne | Durum |
+**Tarama** sekmesi evin gerçek bir taramasını altlık olarak yükler; odalar üzerine
+çizilir ya da onunla hizalanır. Dosya yalnız tarayıcıda açılır ve saklanır.
+
+| Kaynak | Dosya | Nasıl görünür |
 |---|---|---|
-| 2 | Fotoğraftan derinlik (Depth Anything V2, tarayıcıda) + bilinen bir ölçüyle ölçek → tahmini oda | planlandı |
-| 3 | LiDAR taramasını içe aktarma (iPhone uygulamalarının USDZ/DXF çıktısı) | planlandı |
-| 4 | Tarayıcı içi AI görselleştirme (Stable Diffusion, WebGPU), önce/sonra kaydırıcısı | planlandı, deneysel |
-| 5 | Videodan 3B (Gaussian splat görüntüleme; eğitim Brush masaüstünde) | planlandı, deneysel |
+| LiDAR (iPhone/iPad Pro) | Tarama uygulamasının **USDZ** çıktısı | 3B'de model; planda üstten kesit altlığı (duvarlar koyu) |
+| 3B model | **GLB/glTF** (tek dosya), **OBJ**, **.ply** örgü/nokta bulutu | aynı |
+| Video | Videodan Gaussian splat eğiticisiyle (ör. Brush) üretilen **.ply/.spz/.splat/.ksplat** | 3B'de splat (Spark) |
+
+Her katmanın konumu, açısı, ölçeği, yüksekliği ve "ters çevir"i (y-aşağı kaydedilmiş
+splat'ler için) ayarlanır; "Plana ortala" evin ortasına getirir. LiDAR metre verir, ölçek
+1 kalmalı; videodan splat'in ölçeği keyfîdir, bilinen bir ölçüye göre ayarlanır.
+
+**Fotoğraf** sekmesinde her fotoğrafın **3B** düğmesi (deneysel) fotoğrafın derinliğini
+tarayıcıda Depth Anything V2 ile tahmin eder ve fotoğrafı döndürülebilir bir kabartmaya
+çevirir. İlk seferde ~50 MB model iner; WebGPU varsa onunla, yoksa WebAssembly ile çalışır.
+Çıktı **göreli** derinliktir — ölçü değildir, plana ölçü olarak aktarılmaz.
+
+### Yapılmayan: AI ile fotogerçekçi yeniden stillendirme
+
+Planlanmıştı; bu sürümde yok. Ücretsiz ve tarayıcı içi olması istendi, ama sürümü
+sabitlenip bir sayfaya gömülebilen ve doğrulanabilen bir img2img kütüphanesi bulunamadı:
+Web Stable Diffusion (MLC) bir demo olarak yayında, bir kütüphane olarak değil, ve kaynağına
+göre ağırlıkla Apple Silicon'da denenmiş. Doğrulanamayan bir özelliği koymak yerine
+bırakıldı. Stiller şimdilik 3B sahnede malzeme ve renk olarak uygulanır; her stilin
+`aiPrompt` alanı ileride bu iş için hazır.
 
 Kaynaklar ve neden bu araçlar: [`docs/sources.md`](docs/sources.md).
 
@@ -54,7 +79,9 @@ Kaynaklar ve neden bu araçlar: [`docs/sources.md`](docs/sources.md).
 | `app.js` | Durum, geri al/yinele, kayıt, paneller. |
 | `plan2d.js` | SVG plan editörü. |
 | `view3d.js`, `furniture3d.js`, `textures.js` | three.js sahnesi, ilkel geometriden mobilya, canvas'ta çizilen zemin dokuları. |
-| `store.js` | IndexedDB. |
+| `layers.js` | Tarama katmanları: dosyayı açma (USDZ/glTF/OBJ/PLY, splat), plan altlığı. |
+| `depth.js` | Fotoğraftan derinlik (transformers.js) ve kabartma görüntüleyici. |
+| `store.js` | IndexedDB: proje, fotoğraflar, katmanlar. |
 | `styles/*.json` | Stiller — veri, kod değil. Yeni stil = yeni dosya + `styles/index.json`'a bir satır. |
 | `data/furniture.json` | Mobilya kataloğu. |
 
@@ -84,5 +111,5 @@ Duvar `i`, `points[i] → points[i+1]`'dir. Mobilyanın ön yüzü yerel +y; `ro
 
 ```
 node tools/selftest.mjs            # motor kuralları, node'da, bağımlılıksız
-npm i && node tools/smoke.mjs      # gerçek tarayıcıda uçtan uca; ekran görüntüleri shots/ altına
+npm i --ignore-scripts && node tools/smoke.mjs   # gerçek tarayıcıda uçtan uca; ekran görüntüleri shots/ altına
 ```

@@ -352,6 +352,52 @@ check("özet: oda alanları ve toplam", () => {
   if (s.totalM2 !== 21) return JSON.stringify(s);
 });
 
+// ---------------------------------------------------------------- referans katmanları
+check("katman türü uzantıdan ve .ply başlığından", () => {
+  const cases = [
+    ["oda.usdz", "", "mesh"], ["ev.GLB", "", "mesh"], ["a.obj", "", "mesh"], ["s.spz", "", "splat"],
+    ["s.splat", "", "splat"], ["n.ply", "ply\nformat binary_little_endian 1.0\nelement vertex 3\nproperty float x", "mesh"],
+    ["g.ply", "ply\nelement vertex 9\nproperty float x\nproperty float f_dc_0\nproperty float opacity", "splat"],
+    ["resim.jpg", "", null]
+  ];
+  for (const [n, h, want] of cases) if (E.layerKind(n, h) !== want) return `${n}: ${E.layerKind(n, h)} ≠ ${want}`;
+});
+
+check("katman dönüşümü: metre → cm, döndürme 3B ile aynı yönde", () => {
+  const t = { x: 100, y: 50, rot: 90, scale: 1, elev: 0 };
+  const p = E.layerToPlan(t, { x: 1, z: 0 });
+  // Planda saat yönünde 90°: yerel +x → plan +y. 3B'de rotation.y = -90° aynı yeri verir.
+  if (!near(p.x, 100) || !near(p.y, 150)) return JSON.stringify(p);
+  const q = E.layerToPlan({ ...t, rot: 0, scale: 2 }, { x: 1, z: 1 });
+  if (!near(q.x, 300) || !near(q.y, 250)) return JSON.stringify(q);
+  const f = E.layerToPlan({ ...t, rot: 0, flip: true }, { x: 1, z: 1 });
+  if (!near(f.x, 200) || !near(f.y, -50)) return `ters çevrilmiş ${JSON.stringify(f)}`;
+});
+
+check("katmanı ortalama kutunun ortasını hedefe getirir", () => {
+  const box = { minX: 2, maxX: 6, minZ: -1, maxZ: 3 };
+  for (const rot of [0, 37, 180]) {
+    const t = E.centerLayerOn({ x: 0, y: 0, rot, scale: 1, elev: 0 }, box, { x: 400, y: 300 });
+    const b = E.layerPlanBox(t, box);
+    if (!near((b.minX + b.maxX) / 2, 400, 0.2) || !near((b.minY + b.maxY) / 2, 300, 0.2)) return `rot ${rot}: ${JSON.stringify(b)}`;
+  }
+});
+
+check("katman dönüşümü doğrulaması", () => {
+  if (E.layerTransformProblems(E.defaultLayerTransform()).length) return "varsayılan geçersiz";
+  if (!E.layerTransformProblems({ x: 0, y: 0, rot: 0, scale: 0, elev: 0 }).length) return "sıfır ölçek kabul edildi";
+  if (!E.layerTransformProblems({ x: NaN, y: 0, rot: 0, scale: 1, elev: 0 }).length) return "NaN kabul edildi";
+});
+
+check("kabartma ızgarası 0–1'e normalleşir, köşeleri korur", () => {
+  const w = 4, h = 2, data = Uint8Array.from([10, 20, 30, 40, 50, 60, 70, 110]);
+  const g = E.reliefGrid(data, w, h, 4, 2);
+  if (g[0] !== 0 || g[7] !== 1) return Array.from(g).join();
+  if (!near(g[3], 30 / 100)) return `sağ üst ${g[3]}`;
+  const flat = E.reliefGrid(new Uint8Array(8).fill(7), 4, 2, 3, 3);
+  if (Array.from(flat).some((v) => v !== 0)) return "düz görüntü sıfır değil";
+});
+
 // ---------------------------------------------------------------- sonuç
 console.log(`${passed} geçti, ${failures.length} kaldı`);
 if (failures.length) {

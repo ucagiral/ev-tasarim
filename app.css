@@ -185,3 +185,14 @@ dialog form { text-align: right; margin-top: 12px; }
 .compare img { width: 100%; max-height: 72vh; object-fit: contain; background: var(--panel-2); border-radius: 6px; display: block; }
 .compare figcaption { margin-top: 6px; font-weight: 600; }
 .lightbox img { max-width: 100%; max-height: 75vh; display: block; margin: auto; }
+
+.underlay { pointer-events: none; opacity: .7; }
+.room-floor { fill-opacity: .8; }
+.layer { border: 1px solid var(--line); border-radius: 6px; padding: 8px; margin: 8px 0; }
+.layer.err { border-color: var(--bad); }
+.layer .grid { display: grid; grid-template-columns: auto 1fr auto 1fr; gap: 4px 6px; align-items: center; font-size: 12px; color: var(--ink-2); }
+.layer .grid input[type=number] { width: 100%; }
+.depth-view { width: min(900px, 86vw); height: 60vh; position: relative; background: #1b1a18; border-radius: 6px; overflow: hidden; }
+.depth-view .status { position: absolute; inset: 0; display: grid; place-items: center; color: #ddd; padding: 20px; text-align: center; }
+.photo .depth-btn { right: auto; left: 3px; }
+.tabs button { font-size: 12px; padding: 9px 1px; }

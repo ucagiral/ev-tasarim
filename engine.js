@@ -682,6 +682,80 @@
     return Object.assign({}, project, { rooms: rooms, variants: variants });
   }
 
+  // ------------------------------------------------------------------ referans katmanları
+  //
+  // LiDAR taraması, 3B model ya da videodan üretilmiş splat: evin kendisi değil, üzerine
+  // plan çizilecek bir referans. Dosyanın yerel koordinatı metre ve y yukarı kabul edilir
+  // (USDZ, glTF ve RoomPlan böyle). t = {x, y, rot, scale, elev, flip}: plan cm, derece, çarpan,
+  // cm; flip, y-aşağı kaydedilmiş dosyaları (COLMAP/3DGS .ply çoğu zaman öyle) x ekseni
+  // çevresinde 180° çevirir: (x, y, z) → (x, -y, -z).
+
+  var MESH_EXT = ["usdz", "glb", "gltf", "obj", "ply"];
+  var SPLAT_EXT = ["spz", "splat", "ksplat"];
+
+  function fileExt(name) {
+    var m = /\.([a-z0-9]+)$/i.exec(name || "");
+    return m ? m[1].toLowerCase() : "";
+  }
+
+  // .ply hem nokta/örgü hem Gaussian splat olabilir; başlıkta splat'e özgü alanlar aranır.
+  function layerKind(name, plyHeader) {
+    var ext = fileExt(name);
+    if (SPLAT_EXT.indexOf(ext) >= 0) return "splat";
+    if (ext === "ply") return /property\s+\w+\s+f_dc_0/.test(plyHeader || "") ? "splat" : "mesh";
+    if (MESH_EXT.indexOf(ext) >= 0) return "mesh";
+    return null;
+  }
+
+  function defaultLayerTransform() { return { x: 0, y: 0, rot: 0, scale: 1, elev: 0, flip: false }; }
+
+  // Modelin yerel (x, z) noktası (metre) → plan (cm).
+  function layerToPlan(t, p) {
+    var r = t.rot * Math.PI / 180, c = Math.cos(r), s = Math.sin(r), k = t.scale * 100;
+    var z = t.flip ? -p.z : p.z;
+    return { x: t.x + (c * p.x - s * z) * k, y: t.y + (s * p.x + c * z) * k };
+  }
+
+  // Yerel sınır kutusu {minX, maxX, minZ, maxZ} → plandaki sınır kutusu.
+  function layerPlanBox(t, box) {
+    return bbox([
+      layerToPlan(t, { x: box.minX, z: box.minZ }), layerToPlan(t, { x: box.maxX, z: box.minZ }),
+      layerToPlan(t, { x: box.maxX, z: box.maxZ }), layerToPlan(t, { x: box.minX, z: box.maxZ })
+    ]);
+  }
+
+  // Katmanı, yerel kutusunun ortası plandaki hedef noktaya gelecek şekilde kaydır.
+  function centerLayerOn(t, box, target) {
+    var c = layerToPlan(Object.assign({}, t, { x: 0, y: 0 }), { x: (box.minX + box.maxX) / 2, z: (box.minZ + box.maxZ) / 2 });
+    return Object.assign({}, t, { x: round1(target.x - c.x), y: round1(target.y - c.y) });
+  }
+
+  function layerTransformProblems(t) {
+    var out = [];
+    ["x", "y", "rot", "scale", "elev"].forEach(function (k) { if (typeof t[k] !== "number" || !isFinite(t[k])) out.push(k + " sayı değil"); });
+    if (!(t.scale > 0)) out.push("ölçek sıfırdan büyük olmalı");
+    return out;
+  }
+
+  // ------------------------------------------------------------------ fotoğraf derinliği
+  //
+  // Depth Anything V2 göreli derinlik verir (yakın = parlak), metre değil. Bu yalnız
+  // fotoğrafı kabartma olarak göstermek içindir; buradan ölçü çıkarılmaz.
+  // data: w×h tek kanallı 0–255 dizi. Çıktı gw×gh ızgara, 0 (uzak) – 1 (yakın).
+  function reliefGrid(data, w, h, gw, gh) {
+    var out = new Float32Array(gw * gh), mn = 255, mx = 0, i;
+    for (i = 0; i < data.length; i++) { if (data[i] < mn) mn = data[i]; if (data[i] > mx) mx = data[i]; }
+    var span = mx - mn || 1;
+    for (var gy = 0; gy < gh; gy++) {
+      for (var gx = 0; gx < gw; gx++) {
+        var sx = Math.min(w - 1, Math.round(gx / Math.max(1, gw - 1) * (w - 1)));
+        var sy = Math.min(h - 1, Math.round(gy / Math.max(1, gh - 1) * (h - 1)));
+        out[gy * gw + gx] = (data[sy * w + sx] - mn) / span;
+      }
+    }
+    return out;
+  }
+
   root.EvEngine = {
     EPS: EPS,
     ROOM_KINDS: ROOM_KINDS,
@@ -736,6 +810,15 @@
     validateProject: validateProject,
     summary: summary,
     duplicateVariant: duplicateVariant,
-    removeRoom: removeRoom
+    removeRoom: removeRoom,
+
+    fileExt: fileExt,
+    layerKind: layerKind,
+    defaultLayerTransform: defaultLayerTransform,
+    layerToPlan: layerToPlan,
+    layerPlanBox: layerPlanBox,
+    centerLayerOn: centerLayerOn,
+    layerTransformProblems: layerTransformProblems,
+    reliefGrid: reliefGrid
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);

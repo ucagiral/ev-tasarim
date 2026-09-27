@@ -9,6 +9,8 @@
   },
   "devDependencies": {
     "playwright": "1.56.1",
-    "three": "0.186.1"
+    "three": "0.186.1",
+    "@sparkjsdev/spark": "2.2.0",
+    "@huggingface/transformers": "4.3.0"
   }
 }
