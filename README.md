@@ -18,7 +18,7 @@ içermez.
   `npx http-server -c-1 -p 8080 .` ya da `python3 -m http.server 8080`, sonra
   `http://localhost:8080`.
 
-three.js, Spark ve transformers.js `cdn.jsdelivr.net` üzerinden yüklenir (sürümler
+three.js, Spark, transformers.js, exifr ve heic-to `cdn.jsdelivr.net` üzerinden yüklenir (sürümler
 `index.html`'deki importmap'te sabit). Derinlik modeli ilk kullanımda `huggingface.co`'dan
 iner.
 
@@ -39,6 +39,33 @@ iner.
   yan yana karşılaştır.
 - **Fotoğraflar:** her odaya referans fotoğrafı ekle.
 - Geri al / yinele, PNG görüntü indirme, JSON dışa/içe aktarma.
+
+## Ölçmeden oda: fotoğraftan
+
+Metreyle ölçmek gerekmez. **Fotoğraf** sekmesinde fotoğrafın **Oda çıkar** düğmesi:
+
+1. Kapının dört köşesine dokunun (sıra önemsiz). Kapı yüksekliği varsayılan 200 cm'dir —
+   Türkiye'de en yaygın iç kapı kanadı; sizinki farklıysa yazın, sonuç doğrudan bununla
+   ölçeklenir.
+2. Odanın zemin köşelerine dokunun (duvarların zemine değdiği yerler). Karşı duvarın
+   köşeleri derinliği verir; göremiyorsanız "köşede durarak çektim" kameranın yerini köşe
+   sayar.
+3. En ve derinlik, dokunuşlar 3 piksel kaysa çıkabilecek aralıkla gösterilir. "Plana oda
+   olarak ekle" kapısıyla birlikte odayı ekler; oda listesinde **tahmini** diye işaretlenir,
+   planda sürükleyerek düzeltilir.
+
+Nasıl: kapının dört köşesi ve odak uzaklığı (fotoğrafın EXIF'inden; yoksa lens seçilir)
+kameranın kapıya göre konumunu ve eğimini verir. Kapının alt kenarı zeminde olduğu için
+zemin düzlemi de bilinir; dokunulan her zemin noktası bu düzlemle kesiştirilir. Kapının
+eni gerekmez, görüntüden çıkar. Varsayım: oda dikdörtgen, kapı bir duvarda.
+
+İyi sonuç için: **0.5x** lensle, odanın bir köşesinden, kapı ve karşı köşeler aynı karede.
+iPhone 16 Plus'ın 1x lensiyle (26 mm) bu kadar geniş bir açı genellikle sığmaz. Telefonu
+biraz aşağı eğin: ufka yakın zemin köşeleri küçük dokunma hatalarını büyütür.
+
+Fotoğraflar oda yokken de eklenebilir; sürükleyip bırakmak da olur. iPhone'un HEIC
+fotoğrafları tarayıcı gösteremiyorsa JPEG'e çevrilir (Safari gösterir; Chrome/Edge/Firefox
+göstermez).
 
 ## Tarama ve fotoğraftan 3B
 
@@ -81,6 +108,8 @@ Kaynaklar ve neden bu araçlar: [`docs/sources.md`](docs/sources.md).
 | `view3d.js`, `furniture3d.js`, `textures.js` | three.js sahnesi, ilkel geometriden mobilya, canvas'ta çizilen zemin dokuları. |
 | `layers.js` | Tarama katmanları: dosyayı açma (USDZ/glTF/OBJ/PLY, splat), plan altlığı. |
 | `depth.js` | Fotoğraftan derinlik (transformers.js) ve kabartma görüntüleyici. |
+| `photoroom.js` | Fotoğraftan oda aracı (dokunma ve gösterim; hesap `engine.js`'de). |
+| `media.js` | Görsel hazırlama: HEIC→JPEG (heic-to), odak uzaklığı (exifr). |
 | `store.js` | IndexedDB: proje, fotoğraflar, katmanlar. |
 | `styles/*.json` | Stiller — veri, kod değil. Yeni stil = yeni dosya + `styles/index.json`'a bir satır. |
 | `data/furniture.json` | Mobilya kataloğu. |

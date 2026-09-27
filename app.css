@@ -196,3 +196,23 @@ dialog form { text-align: right; margin-top: 12px; }
 .depth-view .status { position: absolute; inset: 0; display: grid; place-items: center; color: #ddd; padding: 20px; text-align: center; }
 .photo .depth-btn { right: auto; left: 3px; }
 .tabs button { font-size: 12px; padding: 9px 1px; }
+
+.photo .room-btn { right: auto; left: 3px; top: auto; bottom: 3px; }
+.badge { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--ink); border-radius: 4px; padding: 0 5px; }
+body.dropping::after { content: "Bırakın: fotoğraflar Fotoğraf'a, 3B dosyaları Tarama'ya"; position: fixed; inset: 12px; border: 3px dashed var(--accent); border-radius: 12px; display: grid; place-items: center; background: color-mix(in srgb, var(--panel) 80%, transparent); font-size: 18px; z-index: 100; pointer-events: none; }
+/* Üste sabit: yan panel büyüdükçe fotoğraf yerinden kaymasın, dokunuşlar kaçmasın. */
+dialog.wide { width: min(1400px, 96vw); margin: 2vh auto auto; max-height: 96vh; }
+.pr { display: grid; grid-template-columns: 1fr 300px; gap: 14px; }
+/* Kutu görüntünün en/boy oranında kalır ki üstteki SVG noktaları piksele otursun. */
+.pr-stage { position: relative; background: #111; border-radius: 6px; overflow: hidden; align-self: start; width: 100%; max-width: calc(78vh * var(--ar, 1.333)); }
+.pr-stage img { display: block; width: 100%; height: auto; }
+.pr-svg { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+.pr-door { fill: rgba(47,125,225,.18); stroke: #2f7de1; }
+.pr-floor { fill: none; stroke: #e0a030; }
+.pr-pt { fill: #fff; cursor: move; }
+.pr-pt.door { stroke: #2f7de1; }
+.pr-pt.floor { stroke: #e0a030; }
+.pr-label { fill: #fff; paint-order: stroke; stroke: #000; stroke-linejoin: round; font-weight: 700; pointer-events: none; }
+.pr-err { color: var(--bad); font-size: 13px; }
+.pr-step { font-size: 14px; }
+@media (max-width: 900px) { .pr { grid-template-columns: 1fr; } }

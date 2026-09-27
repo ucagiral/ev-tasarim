@@ -756,6 +756,166 @@
     return out;
   }
 
+  // ------------------------------------------------------------------ fotoğraftan oda
+  //
+  // Metreyle ölçmeden, tek bir fotoğraftan tahmini oda. Ölçek, boyutu bilinen bir
+  // dikdörtgenden gelir: kapı. Kapının dört köşesi ve kameranın odak uzaklığı (EXIF)
+  // kameranın kapıya göre konumunu ve eğimini verir (düzlemsel homografi → poz). Kapının
+  // alt kenarı zemindedir, yani zemin düzlemi de bilinir; zemin köşelerine dokunulan
+  // noktalardan çıkan ışınlar zeminle kesiştirilerek metrik konumları bulunur.
+  //
+  // Kapı çerçevesi: X duvar boyunca sağa, Y yukarı, Z duvardan odaya (kameraya) doğru;
+  // başlangıç kapının sol alt köşesi. Kameranın yalnız kapı YÜKSEKLİĞİNE ihtiyacı var:
+  // dikdörtgenin en/boy oranı, odak uzaklığı bilinince görüntüden çıkar.
+
+  // 35 mm karşılığı odak uzaklığı → piksel. 35 mm film köşegeni 43.27 mm.
+  function focalPx(f35, w, h) { return f35 * Math.hypot(w, h) / Math.hypot(36, 24); }
+
+  function solveLinear(A, b) {
+    var n = b.length, M = A.map(function (row, i) { return row.concat([b[i]]); });
+    for (var c = 0; c < n; c++) {
+      var p = c;
+      for (var r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+      if (Math.abs(M[p][c]) < 1e-12) return null;
+      var tmp = M[c]; M[c] = M[p]; M[p] = tmp;
+      for (r = 0; r < n; r++) {
+        if (r === c) continue;
+        var k = M[r][c] / M[c][c];
+        for (var j = c; j <= n; j++) M[r][j] -= k * M[c][j];
+      }
+    }
+    return M.map(function (row, i) { return row[n] / row[i]; });
+  }
+
+  // Dört nokta eşlemesinden homografi (h33 = 1). src → dst.
+  function homography4(src, dst) {
+    var A = [], b = [];
+    for (var i = 0; i < 4; i++) {
+      var x = src[i].x, y = src[i].y, u = dst[i].x, v = dst[i].y;
+      A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]); b.push(u);
+      A.push([0, 0, 0, x, y, 1, -v * x, -v * y]); b.push(v);
+    }
+    var h = solveLinear(A, b);
+    return h ? h.concat([1]) : null;
+  }
+
+  function applyH(H, p) {
+    var w = H[6] * p.x + H[7] * p.y + H[8];
+    return { x: (H[0] * p.x + H[1] * p.y + H[2]) / w, y: (H[3] * p.x + H[4] * p.y + H[5]) / w };
+  }
+
+  function v3(x, y, z) { return { x: x, y: y, z: z }; }
+  function d3(a, b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
+  function c3(a, b) { return v3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x); }
+  function s3(a, k) { return v3(a.x * k, a.y * k, a.z * k); }
+  function a3(a, b) { return v3(a.x + b.x, a.y + b.y, a.z + b.z); }
+  function n3(a) { var l = Math.sqrt(d3(a, a)); return l ? s3(a, 1 / l) : a; }
+
+  // Dokunulan dört köşeyi sırala: alttaki iki (y büyük) sol-sağ, üstteki iki sol-sağ.
+  function sortRectCorners(pts) {
+    var s = pts.slice().sort(function (a, b) { return a.y - b.y; });
+    var top = s.slice(0, 2).sort(function (a, b) { return a.x - b.x; });
+    var bot = s.slice(2).sort(function (a, b) { return a.x - b.x; });
+    return { bl: bot[0], br: bot[1], tr: top[1], tl: top[0] };
+  }
+
+  // Kapıdan kamera pozu. cam = {f, cx, cy}; doorHeight cm.
+  // Dönen: R (kapı→kamera, sütunlar r1 r2 r3), t, C (kameranın kapı çerçevesindeki yeri, cm),
+  // doorWidth (görüntüden çıkan, cm).
+  function poseFromDoor(corners, cam, doorHeight) {
+    var k = sortRectCorners(corners);
+    var H = homography4([{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }], [k.bl, k.br, k.tr, k.tl]);
+    if (!H) return { error: "kapı köşeleri bir dikdörtgen oluşturmuyor" };
+    function kinv(a, b, c) { return v3((a - cam.cx * c) / cam.f, (b - cam.cy * c) / cam.f, c); }
+    var col1 = kinv(H[0], H[3], H[6]), col2 = kinv(H[1], H[4], H[7]), col3 = kinv(H[2], H[5], H[8]);
+    // Görüntüde y aşağı; kapı çerçevesinde Y yukarı. v ekseni zaten yukarı eşlendi (bl→tl),
+    // yani col2 görüntüde yukarı giden yönü taşır; kamera ekseninde bu -y'dir, doğal.
+    if (col3.z < 0) { col1 = s3(col1, -1); col2 = s3(col2, -1); col3 = s3(col3, -1); }
+    var l1 = Math.sqrt(d3(col1, col1)), l2 = Math.sqrt(d3(col2, col2));
+    var lambda = l2 / doorHeight;
+    var r1 = n3(col1), r2 = n3(col2);
+    // Gram–Schmidt'i iki eksene eşit dağıt: gürültüde birini kayırmaz.
+    var bis = n3(a3(r1, r2)), perp = n3(c3(c3(r1, r2), bis));
+    // perp, bis'ten r2 tarafına bakar: r1 = (bis − perp)/√2, r2 = (bis + perp)/√2.
+    r1 = n3(a3(s3(bis, Math.SQRT1_2), s3(perp, -Math.SQRT1_2)));
+    r2 = n3(a3(s3(bis, Math.SQRT1_2), s3(perp, Math.SQRT1_2)));
+    var r3 = c3(r1, r2);
+    var t = s3(col3, 1 / lambda);
+    // C = -Rᵀ t
+    var C = v3(-(r1.x * t.x + r1.y * t.y + r1.z * t.z), -(r2.x * t.x + r2.y * t.y + r2.z * t.z), -(r3.x * t.x + r3.y * t.y + r3.z * t.z));
+    if (C.z <= 0) return { error: "kamera kapının arkasında çıktı; köşeler yanlış yerde olabilir" };
+    return { R: [r1, r2, r3], t: t, C: C, doorWidth: l1 / lambda, doorHeight: doorHeight };
+  }
+
+  // Görüntüdeki bir noktanın zemin (Y = 0) üzerindeki yeri, kapı çerçevesinde (cm).
+  function floorPointFromPixel(pose, cam, p) {
+    var dc = v3((p.x - cam.cx) / cam.f, (p.y - cam.cy) / cam.f, 1);
+    var R = pose.R;
+    var d = v3(d3(R[0], dc), d3(R[1], dc), d3(R[2], dc)); // Rᵀ dc
+    if (d.y >= -1e-9) return null; // ufuk çizgisinin üstü: zemine değmez
+    var lam = -pose.C.y / d.y;
+    return { x: pose.C.x + lam * d.x, z: pose.C.z + lam * d.z };
+  }
+
+  // Kapı çerçevesindeki bir noktayı görüntüye izdüşür (test ve önizleme için).
+  function projectPoint(pose, cam, P) {
+    var R = pose.R, t = pose.t;
+    var X = v3(R[0].x * P.x + R[1].x * P.y + R[2].x * P.z + t.x,
+               R[0].y * P.x + R[1].y * P.y + R[2].y * P.z + t.y,
+               R[0].z * P.x + R[1].z * P.y + R[2].z * P.z + t.z);
+    return { x: cam.f * X.x / X.z + cam.cx, y: cam.f * X.y / X.z + cam.cy, z: X.z };
+  }
+
+  // Fotoğraftan dikdörtgen oda. Kapının bulunduğu duvar odanın bir duvarıdır (Z = 0) ve
+  // oda eksenleri o duvara paraleldir. Diğer duvarlar dokunulan zemin köşelerinden;
+  // "köşede durarak çektim" denirse kameranın zemindeki izdüşümü de bir köşe sayılır.
+  // input = {door:[4 px], floor:[px…], image:{w,h}, f35, doorHeight, cameraInCorner}
+  function roomFromPhoto(input) {
+    var cam = { f: focalPx(input.f35, input.image.w, input.image.h), cx: input.image.w / 2, cy: input.image.h / 2 };
+    if (!input.door || input.door.length !== 4) return { error: "kapının dört köşesi gerekli" };
+    var pose = poseFromDoor(input.door, cam, input.doorHeight);
+    if (pose.error) return { error: pose.error };
+    var warnings = [];
+    var pts = [{ x: 0, z: 0 }, { x: pose.doorWidth, z: 0 }];
+    var floor = [];
+    for (var i = 0; i < (input.floor || []).length; i++) {
+      var q = floorPointFromPixel(pose, cam, input.floor[i]);
+      if (!q) return { error: (i + 1) + ". zemin köşesi ufuk çizgisinin üstünde; zemine değen noktaya dokunun" };
+      if (q.z < -15) warnings.push((i + 1) + ". köşe kapının duvarının arkasında çıktı");
+      floor.push(q);
+      pts.push({ x: q.x, z: Math.max(0, q.z) });
+    }
+    if (input.cameraInCorner) pts.push({ x: pose.C.x, z: pose.C.z });
+    var xs = pts.map(function (p) { return p.x; }), zs = pts.map(function (p) { return p.z; });
+    var xmin = Math.min.apply(null, xs), xmax = Math.max.apply(null, xs), zmax = Math.max.apply(null, zs);
+    var width = xmax - xmin, depth = zmax;
+    if (depth < 60) warnings.push("odanın derinliği bu fotoğraftan çıkmıyor; karşı duvarın köşelerine dokunun ya da köşede durarak çekin");
+    if (pose.C.y < 60 || pose.C.y > 220) warnings.push("kamera yüksekliği " + Math.round(pose.C.y) + " cm çıktı; kapı köşeleri ya da kapı yüksekliği yanlış olabilir");
+    return {
+      width: width, depth: depth,
+      doorOffset: -xmin + pose.doorWidth / 2, doorWidth: pose.doorWidth, doorHeight: pose.doorHeight,
+      cameraHeight: pose.C.y, camera: { x: pose.C.x - xmin, z: pose.C.z }, floor: floor, warnings: warnings, focalPx: cam.f
+    };
+  }
+
+  // Dokunuşların ±px kaymasına karşı en/derinlik aralığı. rand: 0–1 üreten fonksiyon (test
+  // için tohumlu verilir).
+  function photoRoomSpread(input, rand, n, px) {
+    var W = [], D = [];
+    function jit(p) { return { x: p.x + (rand() * 2 - 1) * px, y: p.y + (rand() * 2 - 1) * px }; }
+    for (var i = 0; i < n; i++) {
+      var r = roomFromPhoto(Object.assign({}, input, { door: input.door.map(jit), floor: (input.floor || []).map(jit) }));
+      if (!r.error) { W.push(r.width); D.push(r.depth); }
+    }
+    if (!W.length) return null;
+    return { width: [Math.min.apply(null, W), Math.max.apply(null, W)], depth: [Math.min.apply(null, D), Math.max.apply(null, D)], samples: W.length };
+  }
+
+  function seededRandom(seed) {
+    var s = seed >>> 0 || 1;
+    return function () { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+  }
+
   root.EvEngine = {
     EPS: EPS,
     ROOM_KINDS: ROOM_KINDS,
@@ -819,6 +979,17 @@
     layerPlanBox: layerPlanBox,
     centerLayerOn: centerLayerOn,
     layerTransformProblems: layerTransformProblems,
-    reliefGrid: reliefGrid
+    reliefGrid: reliefGrid,
+
+    focalPx: focalPx,
+    homography4: homography4,
+    applyH: applyH,
+    sortRectCorners: sortRectCorners,
+    poseFromDoor: poseFromDoor,
+    floorPointFromPixel: floorPointFromPixel,
+    projectPoint: projectPoint,
+    roomFromPhoto: roomFromPhoto,
+    photoRoomSpread: photoRoomSpread,
+    seededRandom: seededRandom
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
