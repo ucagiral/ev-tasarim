@@ -1051,10 +1051,36 @@
     return { upload: upload, run: run };
   }
 
-  // gradio_demo'nun 11 girdisi, demodaki sırayla. Kamera tel çerçevesi kapalı (oda
-  // çıkarmayı etkilemesin), Gaussian splat kapalı (uzun sürer, gereksiz).
-  function da3RunArgs(targetDir) {
-    return [targetDir, false, false, false, "upper_bound_resize", 30, 1000000, false, "saddle_balanced", "extend", "high"];
+  // gradio_demo'nun 11 girdisi, demodaki sırayla. Yayındaki demo kaynak koddan farklı
+  // seçenekler kullanabiliyor (process_res_method: kodda "upper_bound_resize", yayında
+  // "high_res"/"low_res"), o yüzden her girdi önce demonun kendi varsayılanından alınır;
+  // yalnız kamera tel çerçevesi (1) ve Gaussian splat (7) kapatılır. params: view_api'nin
+  // parametre listesi; yoksa koddaki değerler.
+  var DA3_FALLBACK = [null, false, false, false, "upper_bound_resize", 30, 1000000, false, "saddle_balanced", "extend", "high"];
+  function da3RunArgs(targetDir, params) {
+    return DA3_FALLBACK.map(function (fb, i) {
+      if (i === 0) return targetDir;
+      var p = params && params[i];
+      if ((i === 1 || i === 7) && (!p || p.type === "boolean" || typeof p.parameter_default === "boolean")) return false;
+      if (p && p.parameter_has_default && p.parameter_default !== null && p.parameter_default !== undefined) return p.parameter_default;
+      return fb;
+    });
+  }
+
+  // Gradio'nun "Value: X is not in the list of choices: ['a', 'b']" hatasından: X'i ilk
+  // seçenekle değiştirilmiş argümanlar; hata bu değilse ya da X bulunamazsa null.
+  function da3FixChoice(args, message) {
+    var m = /Value:\s*(.+?)\s+is not in the list of choices:\s*\[(.*?)\]/.exec(String(message || ""));
+    if (!m) return null;
+    var bad = m[1].replace(/^['"]|['"]$/g, "");
+    var choices = m[2].split(",").map(function (c) { return c.trim().replace(/^['"]|['"]$/g, ""); }).filter(Boolean);
+    if (!choices.length) return null;
+    var idx = -1;
+    for (var i = 0; i < args.length; i++) if (String(args[i]) === bad) idx = i;
+    if (idx < 0) return null;
+    var out = args.slice();
+    out[idx] = choices[0];
+    return out;
   }
 
   function seededRandom(seed) {
@@ -1139,6 +1165,7 @@
     roomFromPointCloud: roomFromPointCloud,
     da3Endpoints: da3Endpoints,
     da3RunArgs: da3RunArgs,
+    da3FixChoice: da3FixChoice,
     seededRandom: seededRandom
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);

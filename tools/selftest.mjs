@@ -604,6 +604,26 @@ check("DA3 demosu: gradio_demo argümanları demodaki sırayla ve 11 tane", () =
   if (a.length !== 11 || a[0] !== "/tmp/x" || a[1] !== false || a[4] !== "upper_bound_resize" || a[7] !== false) return JSON.stringify(a);
 });
 
+check("DA3 demosu: yayındaki demonun varsayılanları kullanılır, kamera ve splat kapalı", () => {
+  // Yayındaki demo: process_res_method seçenekleri high_res/low_res (gerçek hata mesajından).
+  const params = new Array(11).fill(null).map(() => ({ parameter_has_default: false }));
+  params[1] = { type: "boolean", parameter_has_default: true, parameter_default: true };
+  params[4] = { type: "", parameter_has_default: true, parameter_default: "high_res" };
+  params[7] = { type: "boolean", parameter_has_default: true, parameter_default: true };
+  const a = E.da3RunArgs("/d", params);
+  if (a[4] !== "high_res") return `process_res ${a[4]}`;
+  if (a[1] !== false || a[7] !== false) return "kamera ya da splat açık kaldı";
+  if (a[5] !== 30) return "varsayılanı olmayan girdi koddaki değere düşmedi";
+});
+
+check("DA3 demosu: 'seçenek listesinde yok' hatasından düzeltme", () => {
+  const args = E.da3RunArgs("/d");
+  const fixed = E.da3FixChoice(args, "Value: upper_bound_resize is not in the list of choices: ['high_res', 'low_res']");
+  if (!fixed || fixed[4] !== "high_res" || fixed[0] !== "/d") return JSON.stringify(fixed);
+  if (E.da3FixChoice(args, "GPU quota exceeded") !== null) return "ilgisiz hata düzeltme sandı";
+  if (E.da3FixChoice(args, "Value: nope is not in the list of choices: ['a']") !== null) return "olmayan değeri değiştirdi";
+});
+
 // ---------------------------------------------------------------- sonuç
 console.log(`${passed} geçti, ${failures.length} kaldı`);
 if (failures.length) {
