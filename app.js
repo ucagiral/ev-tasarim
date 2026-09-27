@@ -5,6 +5,8 @@ import { Plan2D, replaceRoom, replaceItem } from "./plan2d.js";
 import { View3D } from "./view3d.js";
 import * as store from "./store.js";
 import * as layers from "./layers.js";
+import { isImageFile, prepareImage } from "./media.js";
+import { openPhotoRoom } from "./photoroom.js";
 
 const E = globalThis.EvEngine;
 const $ = (s, r = document) => r.querySelector(s);
@@ -164,7 +166,7 @@ function tabRooms() {
   const rid = selectedRoomId();
   const rooms = S.project.rooms.map((r) => `
     <button class="list-item${r.id === rid ? " on" : ""}" data-act="select-room" data-id="${r.id}">
-      <span>${esc(r.name)} <small>${E.ROOM_KINDS[r.kind] || ""}</small></span><small>${E.areaM2(r.points).toFixed(1)} m²</small>
+      <span>${esc(r.name)} <small>${E.ROOM_KINDS[r.kind] || ""}</small>${r.estimate ? ` <small class="badge" title="Fotoğraftan tahmin edildi${r.estimate.spread ? `: en ${r.estimate.spread.width.join("–")}, derinlik ${r.estimate.spread.depth.join("–")} cm` : ""}">tahmini</small>` : ""}</span><small>${E.areaM2(r.points).toFixed(1)} m²</small>
     </button>`).join("") || `<p class="hint">Henüz oda yok. Aşağıdan dikdörtgen bir oda ekleyin ya da planda çizin.</p>`;
 
   let editor = "";
@@ -290,19 +292,31 @@ function tabVariants() {
     <p class="hint">Karşılaştırma iki varyantı 3B görünümün şu anki açısından çizer.</p>`;
 }
 
+// Fotoğraf bir odaya bağlı olabilir ya da henüz hiçbirine ("" = odasız). Oda yokken de
+// fotoğraf eklenebilmeli: fotoğraftan oda çıkarmanın başlangıcı zaten bu.
 function tabPhotos() {
   const rooms = S.project.rooms;
-  if (!rooms.length) return `<p class="hint">Önce bir oda ekleyin.</p>`;
-  if (!rooms.some((r) => r.id === S.photoRoomId)) S.photoRoomId = selectedRoomId() || rooms[0].id;
-  const opts = rooms.map((r) => `<option value="${r.id}"${r.id === S.photoRoomId ? " selected" : ""}>${esc(r.name)}</option>`).join("");
-  const photos = S.photos.filter((p) => p.roomId === S.photoRoomId);
-  const grid = photos.map((p) => `<div class="photo" data-act="open-photo" data-id="${p.id}"><img src="${p.url}" alt="${esc(p.name)}"><button class="depth-btn" data-act="depth-photo" data-id="${p.id}" title="Derinlikten kabartma (deneysel)">3B</button><button data-act="delete-photo" data-id="${p.id}" title="Sil">×</button></div>`).join("");
+  if (S.photoRoomId == null || (S.photoRoomId !== "" && !rooms.some((r) => r.id === S.photoRoomId))) S.photoRoomId = selectedRoomId() || "";
+  const opts = [`<option value=""${S.photoRoomId === "" ? " selected" : ""}>Odaya bağlı değil</option>`]
+    .concat(rooms.map((r) => `<option value="${r.id}"${r.id === S.photoRoomId ? " selected" : ""}>${esc(r.name)}</option>`)).join("");
+  const photos = S.photos.filter((p) => (p.roomId || "") === S.photoRoomId);
+  const grid = photos.map((p) => `<div class="photo" data-act="open-photo" data-id="${p.id}"><img src="${p.url}" alt="${esc(p.name)}">
+      <button class="depth-btn" data-act="depth-photo" data-id="${p.id}" title="Derinlikten kabartma (deneysel)">3B</button>
+      <button class="room-btn" data-act="room-photo" data-id="${p.id}" title="Bu fotoğraftan tahmini oda çıkar">Oda çıkar</button>
+      <button data-act="delete-photo" data-id="${p.id}" title="Sil">×</button></div>`).join("");
   return `
     <div class="field"><span>Oda</span><select id="photo-room" data-act="photo-room">${opts}</select></div>
-    <label class="btn" style="display:block;text-align:center;margin:8px 0">Fotoğraf ekle<input type="file" id="photo-input" accept="image/*" multiple hidden></label>
-    <div class="photos">${grid || `<p class="hint" style="grid-column:1/-1">Bu odanın fotoğrafı yok.</p>`}</div>
-    <p class="hint">Tasarlarken gerçek odayı yan yana görmek için. Fotoğraflar yalnız bu tarayıcıda saklanır, hiçbir yere gönderilmez.</p>
-    <p class="hint"><b>3B</b> düğmesi (deneysel): fotoğrafın derinliğini tarayıcıda bir yapay zekâ modeliyle (Depth Anything V2) tahmin edip fotoğrafı döndürülebilir bir kabartmaya çevirir. İlk seferde ~50 MB model indirilir. Sonuç <b>göreli</b> derinliktir, ölçü değildir.</p>`;
+    <label class="btn" style="display:block;text-align:center;margin:8px 0">Fotoğraf ekle<input type="file" id="photo-input" accept="image/*,.heic,.heif" multiple hidden></label>
+    <div class="photos">${grid || `<p class="hint" style="grid-column:1/-1">Burada fotoğraf yok. Dosyaları sayfanın üstüne sürükleyip bırakabilirsiniz de.</p>`}</div>
+    <h3>Ölçmeden oda</h3>
+    <p class="hint"><b>Oda çıkar</b>: fotoğrafta kapının dört köşesine ve odanın zemin köşelerine dokunursunuz; kapının yüksekliğinden odanın eni ve derinliği tahmin edilir. İyi sonuç için:</p>
+    <ul class="hint">
+      <li>Odanın bir köşesinden, <b>0.5x</b> (geniş açı) lensle, kapı ve karşı köşeler aynı karede olacak şekilde çekin. 1x'te genellikle sığmaz.</li>
+      <li>Kapının dört köşesi ve zeminin duvara değdiği köşeler görünsün; eşya köşeyi kapatıyorsa tahmini yere dokunun.</li>
+      <li>Sonuç tahmindir; aralığıyla gösterilir ve planda sürükleyerek düzeltilebilir.</li>
+    </ul>
+    <p class="hint">Fotoğraflar yalnız bu tarayıcıda saklanır. iPhone'un HEIC fotoğrafları gerekirse JPEG'e çevrilir.</p>
+    <p class="hint"><b>3B</b> (deneysel): fotoğrafı tarayıcıda Depth Anything V2 ile göreli derinlikten döndürülebilir kabartmaya çevirir; ölçü vermez. İlk seferde ~50 MB model iner.</p>`;
 }
 
 function tabLayers() {
@@ -328,7 +342,7 @@ function tabLayers() {
   }).join("");
   return `
     <p class="hint">Evin gerçek taramasını altlık olarak yükleyin, odaları üzerine çizin ya da hizalayın. Dosya yalnız bu tarayıcıda açılır ve saklanır.</p>
-    <label class="btn" style="display:block;text-align:center;margin:8px 0">Dosya yükle<input type="file" id="layer-input" accept=".usdz,.glb,.gltf,.obj,.ply,.spz,.splat,.ksplat" hidden></label>
+    <label class="btn" style="display:block;text-align:center;margin:8px 0">Dosya yükle<input type="file" id="layer-input" accept=".usdz,.glb,.gltf,.obj,.ply,.spz,.splat,.ksplat,image/*,.heic,.heif" multiple hidden></label>
     <div>${list || `<p class="hint">Katman yok.</p>`}</div>
     <h3>Hangi dosya?</h3>
     <ul class="hint">
@@ -727,6 +741,11 @@ function bindLeft() {
         modal(`<div class="lightbox"><img src="${p.url}" alt=""><p class="hint">${esc(p.name)}</p></div>`);
         break;
       }
+      case "room-photo": {
+        e.stopPropagation();
+        openRoomFromPhoto(S.photos.find((x) => x.id === id));
+        break;
+      }
       case "depth-photo": {
         e.stopPropagation();
         openDepth(S.photos.find((x) => x.id === id));
@@ -759,8 +778,7 @@ function bindLeft() {
     const t = e.target;
     const act = t.dataset.act;
     const room = roomById(selectedRoomId());
-    if (t.id === "photo-input") { addPhotos(t.files); return; }
-    if (t.id === "layer-input") { const f = t.files[0]; t.value = ""; if (f) addLayerFile(f); return; }
+    if (t.id === "photo-input" || t.id === "layer-input") { const files = [...t.files]; t.value = ""; addFiles(files); return; }
     if (act && act.startsWith("layer-")) {
       const L = S.layers.find((x) => x.id === t.dataset.id);
       if (act === "layer-vis") { L.visible = t.checked; persistLayer(L); syncLayers(); }
@@ -937,12 +955,82 @@ async function loadPhotos() {
 }
 
 async function addPhotos(files) {
+  let ok = 0;
+  const failed = [];
+  if (files.length) toast(`${files.length} fotoğraf hazırlanıyor…`);
   for (const f of files) {
-    if (!f.type.startsWith("image/")) continue;
-    await store.addPhoto({ id: uid("f"), roomId: S.photoRoomId, name: f.name, blob: f, added: new Date().toISOString() });
+    const r = await prepareImage(f);
+    if (r.error) { failed.push(`${f.name}: ${r.error}`); continue; }
+    await store.addPhoto({ id: uid("f"), roomId: S.photoRoomId || "", name: r.name, blob: r.blob, f35: r.f35, added: new Date().toISOString() });
+    ok++;
   }
   await loadPhotos();
-  toast(`${files.length} fotoğraf eklendi.`);
+  if (failed.length) modal(`<h3>${ok} fotoğraf eklendi, ${failed.length} eklenemedi</h3><ul>${failed.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`);
+  else toast(`${ok} fotoğraf eklendi.`);
+}
+
+// Hangi seçiciden ya da sürükle-bırakla gelirse gelsin: görseller fotoğraf panosuna,
+// 3B dosyaları tarama katmanlarına.
+async function addFiles(files) {
+  const images = files.filter(isImageFile);
+  const scans = [];
+  const rejected = [];
+  for (const f of files) {
+    if (images.includes(f)) continue;
+    if (await layers.detectKind(f)) scans.push(f); else rejected.push(f.name);
+  }
+  if (images.length) {
+    if (S.photoRoomId == null) S.photoRoomId = selectedRoomId() || "";
+    S.tab = "photos";
+    renderTab();
+    await addPhotos(images);
+  }
+  for (const f of scans) { S.tab = "layers"; await addLayerFile(f); }
+  if (rejected.length) toast("Tanınmayan dosya: " + rejected.join(", "), true);
+}
+
+function openRoomFromPhoto(photo) {
+  modal(`<div id="pr-host"></div>`);
+  $("#modal").classList.add("wide");
+  $("#modal").addEventListener("close", () => $("#modal").classList.remove("wide"), { once: true });
+  openPhotoRoom($("#pr-host"), photo, {
+    onAdd: ({ result, spread, kind }) => {
+      const n = S.project.rooms.length + 1;
+      const room = E.newRectRoom(S.project, uid("oda"), (E.ROOM_KINDS[kind] || "Oda") + " " + n, kind, Math.round(result.width), Math.round(result.depth), 260);
+      room.openings = [{ id: uid("k"), type: "door", wall: 0, offset: Math.round(result.doorOffset), width: Math.round(result.doorWidth), height: Math.round(result.doorHeight), sill: 0 }];
+      room.estimate = { source: "photo", photoId: photo.id, spread: spread ? { width: spread.width.map(Math.round), depth: spread.depth.map(Math.round) } : null };
+      const fixed = E.clampOpening(room, room.openings[0]);
+      room.openings = [fixed];
+      api.commit({ ...S.project, rooms: [...S.project.rooms, room] });
+      if (!S.project.rooms.some((r) => r.id === room.id)) return;
+      // Fotoğrafı yeni odaya bağla.
+      store.addPhoto({ ...stripUrl(photo), roomId: room.id }).then(loadPhotos);
+      $("#modal").close();
+      S.selection = { kind: "room", id: room.id };
+      S.tab = "rooms";
+      renderAll();
+      plan.fit();
+      view.hasFramed = false;
+      update3d();
+      toast(`${room.name} eklendi: ${Math.round(result.width)} × ${Math.round(result.depth)} cm (tahmini). Planda sürükleyerek düzeltebilirsiniz.`);
+    }
+  });
+}
+
+function stripUrl(p) { const { url, ...rest } = p; return rest; }
+
+function bindDrop() {
+  let depth = 0;
+  window.addEventListener("dragenter", (e) => { if (e.dataTransfer?.types?.includes("Files")) { depth++; document.body.classList.add("dropping"); } });
+  window.addEventListener("dragleave", () => { if (--depth <= 0) { depth = 0; document.body.classList.remove("dropping"); } });
+  window.addEventListener("dragover", (e) => { if (e.dataTransfer?.types?.includes("Files")) e.preventDefault(); });
+  window.addEventListener("drop", (e) => {
+    if (!e.dataTransfer?.files?.length) return;
+    e.preventDefault();
+    depth = 0;
+    document.body.classList.remove("dropping");
+    addFiles([...e.dataTransfer.files]);
+  });
 }
 
 // ---------------------------------------------------------------- örnek ev
@@ -1011,7 +1099,7 @@ async function init() {
     if (S.tab === "variants" && view.mode !== "walk" && S.layout !== "plan") captureThumb();
     renderTab();
   }));
-  bindLeft(); bindRight(); bindTop(); bindKeys();
+  bindLeft(); bindRight(); bindTop(); bindKeys(); bindDrop();
   let layout = "split";
   try { layout = localStorage.getItem("ev-layout") || "split"; } catch {}
   setLayout(layout);
@@ -1019,7 +1107,7 @@ async function init() {
   requestAnimationFrame(() => plan.fit());
   loadPhotos();
   loadLayers();
-  window.__ev = { S, api, E, view, plan, addLayerFile }; // tarayıcı konsolundan ve duman testinden erişim için
+  window.__ev = { S, api, E, view, plan, addLayerFile, addFiles, openRoomFromPhoto }; // tarayıcı konsolundan ve duman testinden erişim için
 }
 
 init().catch((e) => {

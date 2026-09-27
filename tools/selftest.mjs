@@ -398,6 +398,123 @@ check("kabartma ızgarası 0–1'e normalleşir, köşeleri korur", () => {
   if (Array.from(flat).some((v) => v !== 0)) return "düz görüntü sıfır değil";
 });
 
+// ---------------------------------------------------------------- fotoğraftan oda
+// Sentetik kamera: kapı çerçevesinde (X duvar boyunca, Y yukarı, Z odaya) bir konumdan bir
+// hedefe bakar. Kapıyı ve zemin köşelerini görüntüye izdüşürüp motordan geri isteriz.
+function lookAtPose(C, target) {
+  const sub = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
+  const cross = (a, b) => ({ x: a.y * b.z - a.z * b.y, y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x });
+  const norm = (a) => { const l = Math.hypot(a.x, a.y, a.z); return { x: a.x / l, y: a.y / l, z: a.z / l }; };
+  const fwd = norm(sub(target, C));
+  const right = norm(cross(fwd, { x: 0, y: 1, z: 0 }));
+  const down = cross(fwd, right);
+  // R sütunları: kapı eksenlerinin kamera koordinatındaki karşılıkları.
+  const R = [{ x: right.x, y: down.x, z: fwd.x }, { x: right.y, y: down.y, z: fwd.y }, { x: right.z, y: down.z, z: fwd.z }];
+  const t = { x: -(right.x * C.x + right.y * C.y + right.z * C.z), y: -(down.x * C.x + down.y * C.y + down.z * C.z), z: -(fwd.x * C.x + fwd.y * C.y + fwd.z * C.z) };
+  return { R, t };
+}
+const IMG = { w: 4032, h: 3024 };           // iPhone 12 MP yatay
+const F35 = 26;                              // iPhone 16 Plus ana kamera (1x)
+const UW = 13;                               // ultra geniş (0.5x)
+const camFor = (f35) => ({ f: E.focalPx(f35, IMG.w, IMG.h), cx: IMG.w / 2, cy: IMG.h / 2 });
+const CAM = camFor(F35);
+// Oda: X −100…280, Z 0…420; kapı X 0…85, yükseklik 205.
+const DOOR = { w: 85, h: 205 };
+function shoot(C, target, floor3d, f35 = F35) {
+  const pose = lookAtPose(C, target);
+  const cam = camFor(f35);
+  const pr = (P) => E.projectPoint(pose, cam, P);
+  const door = [pr({ x: 0, y: 0, z: 0 }), pr({ x: DOOR.w, y: 0, z: 0 }), pr({ x: DOOR.w, y: DOOR.h, z: 0 }), pr({ x: 0, y: DOOR.h, z: 0 })];
+  const floor = floor3d.map((P) => pr({ x: P.x, y: 0, z: P.z }));
+  for (const p of [...door, ...floor]) if (p.z <= 0 || p.x < 0 || p.y < 0 || p.x > IMG.w || p.y > IMG.h) return { offscreen: p };
+  return { door: door.map(({ x, y }) => ({ x, y })), floor: floor.map(({ x, y }) => ({ x, y })) };
+}
+
+check("odak uzaklığı: 26 mm karşılığı 4032×3024'te ~3100 px", () => {
+  const f = E.focalPx(26, 4032, 3024);
+  if (!near(f, 26 * 5040 / Math.hypot(36, 24), 0.01)) return `${f}`;
+  if (f < 3000 || f > 3200) return `${f}`;
+});
+
+check("homografi dört noktayı birebir eşler", () => {
+  const src = [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }];
+  const dst = [{ x: 100, y: 900 }, { x: 400, y: 880 }, { x: 390, y: 200 }, { x: 110, y: 150 }];
+  const H = E.homography4(src, dst);
+  for (let i = 0; i < 4; i++) { const q = E.applyH(H, src[i]); if (!near(q.x, dst[i].x, 1e-6) || !near(q.y, dst[i].y, 1e-6)) return JSON.stringify(q); }
+});
+
+check("kapıdan poz: kamera konumu ve kapı genişliği geri gelir", () => {
+  const C = { x: 150, y: 140, z: 380 };
+  const s = shoot(C, { x: 60, y: 110, z: 0 }, []);
+  if (s.offscreen) return "kapı kadraj dışında";
+  const shuffled = [s.door[2], s.door[0], s.door[3], s.door[1]]; // dokunma sırası önemsiz
+  const pose = E.poseFromDoor(shuffled, CAM, DOOR.h);
+  if (pose.error) return pose.error;
+  if (!near(pose.C.x, C.x, 0.5) || !near(pose.C.y, C.y, 0.5) || !near(pose.C.z, C.z, 0.5)) return JSON.stringify(pose.C);
+  if (!near(pose.doorWidth, DOOR.w, 0.3)) return `kapı eni ${pose.doorWidth}`;
+});
+
+check("zemin noktası ışın–zemin kesişimiyle geri gelir", () => {
+  const C = { x: 150, y: 140, z: 380 };
+  const P = { x: -100, z: 0 };
+  const s = shoot(C, { x: 60, y: 110, z: 0 }, [P]);
+  const pose = E.poseFromDoor(s.door, CAM, DOOR.h);
+  const q = E.floorPointFromPixel(pose, CAM, s.floor[0]);
+  if (!near(q.x, P.x, 0.5) || !near(q.z, P.z, 0.5)) return JSON.stringify(q);
+});
+
+// Üç köşe ve kapı aynı karede ancak 0.5x lensle sığıyor: 1x'in yatay yarım açısı ~33°.
+const THREE_CORNERS = [{ x: 260, y: 150, z: 400 }, { x: 180, y: 70, z: 300 }, [{ x: -100, z: 0 }, { x: 280, z: 0 }, { x: -100, z: 420 }], UW];
+
+check("1x lensle kapı ve üç köşe aynı kareye sığmıyor (0.5x önerisinin gerekçesi)", () => {
+  const s = shoot(...THREE_CORNERS.slice(0, 3), F35);
+  if (!s.offscreen) return "1x'te de sığdı; öneri metni gözden geçirilmeli";
+});
+
+check("fotoğraftan oda: karşı köşeden, üç köşe görünür (gürültüsüz ±1 cm)", () => {
+  const s = shoot(...THREE_CORNERS);
+  if (s.offscreen) return "kadraj dışı: " + JSON.stringify(s.offscreen);
+  const r = E.roomFromPhoto({ door: s.door, floor: s.floor, image: IMG, f35: UW, doorHeight: DOOR.h });
+  if (r.error) return r.error;
+  if (!near(r.width, 380, 1) || !near(r.depth, 420, 1)) return `${r.width} × ${r.depth}`;
+  if (!near(r.doorOffset, 100 + DOOR.w / 2, 1)) return `kapı konumu ${r.doorOffset}`;
+  if (r.warnings.length) return r.warnings.join("; ");
+});
+
+check("fotoğraftan oda: kapıya bakarak, köşede durarak (derinlik kameradan)", () => {
+  const s = shoot({ x: 270, y: 145, z: 410 }, { x: 40, y: 80, z: 0 }, [{ x: -100, z: 0 }, { x: 280, z: 0 }]);
+  if (s.offscreen) return "kadraj dışı: " + JSON.stringify(s.offscreen);
+  const noCorner = E.roomFromPhoto({ door: s.door, floor: s.floor, image: IMG, f35: F35, doorHeight: DOOR.h });
+  if (!near(noCorner.width, 380, 1)) return `en ${noCorner.width}`;
+  const r = E.roomFromPhoto({ door: s.door, floor: s.floor, image: IMG, f35: F35, doorHeight: DOOR.h, cameraInCorner: true });
+  if (!near(r.depth, 410, 1)) return `derinlik ${r.depth}`;
+});
+
+check("derinlik yoksa söylenir, uydurulmaz", () => {
+  const s = shoot({ x: 90, y: 150, z: 300 }, { x: 90, y: 80, z: 0 }, [{ x: -100, z: 0 }, { x: 280, z: 0 }]);
+  if (s.offscreen) return "kadraj dışı";
+  const r = E.roomFromPhoto({ door: s.door, floor: s.floor, image: IMG, f35: F35, doorHeight: DOOR.h });
+  if (!r.warnings.some((w) => w.includes("derinli"))) return JSON.stringify(r.warnings);
+});
+
+check("ufkun üstüne dokunulan zemin köşesi reddedilir", () => {
+  const s = shoot({ x: 150, y: 140, z: 380 }, { x: 60, y: 110, z: 0 }, []);
+  const r = E.roomFromPhoto({ door: s.door, floor: [{ x: IMG.w / 2, y: 10 }], image: IMG, f35: F35, doorHeight: DOOR.h });
+  if (!r.error || !r.error.includes("ufuk")) return JSON.stringify(r);
+});
+
+check("±2 px dokunma hatasında belirsizlik aralığı gerçek ölçüyü kapsar", () => {
+  const s = shoot(...THREE_CORNERS);
+  const rand = E.seededRandom(42);
+  const noisy = (p) => ({ x: p.x + (rand() * 4 - 2), y: p.y + (rand() * 4 - 2) });
+  const input = { door: s.door.map(noisy), floor: s.floor.map(noisy), image: IMG, f35: UW, doorHeight: DOOR.h };
+  const sp = E.photoRoomSpread(input, E.seededRandom(7), 60, 3);
+  if (!sp) return "aralık yok";
+  if (!(sp.width[0] <= 380 && sp.width[1] >= 380)) return `en ${sp.width}`;
+  if (!(sp.depth[0] <= 420 && sp.depth[1] >= 420)) return `derinlik ${sp.depth}`;
+  if (sp.width[1] - sp.width[0] > 120) return `aralık çok geniş: ${sp.width}`;
+});
+
 // ---------------------------------------------------------------- sonuç
 console.log(`${passed} geçti, ${failures.length} kaldı`);
 if (failures.length) {

@@ -53,3 +53,30 @@ gerçek bir mobilyanın ölçüsü bilindiğinde o yazılmalı.
     masaüstünde çalıştırılıp `.ply` yüklenecek.
     <https://github.com/ArthurBrussee/brush> ·
     <https://radiancefields.com/gaussian-splatting-in-browser-brush>
+
+## Fotoğraftan oda
+
+- **Kapı ölçüsü (varsayılan 200 cm yükseklik):** Türkiye'de iç kapı kanadı genişlikte 80–90,
+  yükseklikte 200–210 cm; en yaygın ölçü 80×200. Kasa boşluğu 205–210 cm. Kaynaklar bu
+  aralıkta ayrışıyor; yöntem yalnız yüksekliği kullandığından varsayılan olarak en yaygın
+  kanat yüksekliği 200 alındı, kullanıcı kendi kapısını yazar.
+  <https://antalyakapi.com.tr/standart-oda-kapisi-olculeri.html> ·
+  <https://www.caliskanlarkapi.com/blog/2026-standart-kapi-olculeri-ic-banyo-dis-ve-amerikan-kapilar> ·
+  <https://www.kalekilit.com.tr/tr/medya/blog/ic-kapi-nasil-olmali>
+- **iPhone 16 Plus:** ana kamera 26 mm, ultra geniş 13 mm (35 mm karşılığı); LiDAR yok
+  (yalnız 16 Pro / Pro Max'te).
+  <https://support.apple.com/en-in/121030> ·
+  <https://www.simplywise.com/blog/which-iphones-have-lidar/>
+- **35 mm karşılığı → piksel odak:** f_px = f35 · köşegen_px / 43.27 (36×24 mm karenin
+  köşegeni). Görüntünün en/boy oranından bağımsız.
+- **Metre veren derinlik modeli tarayıcıda yok:** Depth Anything V2'nin "Metric" sürümleri
+  transformers.js için ONNX'e çevrilemiyor (açık issue). Ölçek bu yüzden kapıdan geliyor.
+  <https://github.com/huggingface/transformers.js/issues/1476>
+- **HEIC:** Chrome, Edge ve Firefox HEIC göstermiyor; Safari gösteriyor. Gerekirse
+  `heic-to` 1.5.2 ile JPEG'e çevriliyor; odak uzaklığı `exifr` 7.1.3 (lite: JPEG ve HEIC
+  okur) ile.
+  <https://www.heicify.com/guides/heic-browser-support> · <https://github.com/MikeKovarik/exifr>
+- **Doğrulama:** `selftest` bilinen bir sentetik kamerayla kapıyı ve köşeleri izdüşürüp
+  odayı ±1 cm geri çıkarıyor; ±2 px gürültüde belirsizlik aralığı gerçek ölçüyü kapsıyor.
+  `smoke` three.js ile render edilmiş bir oda fotoğrafında arayüzden dokunarak 380×420 cm'lik
+  odayı %4 içinde buluyor. Gerçek bir iPhone fotoğrafıyla doğruluk henüz ölçülmedi.
