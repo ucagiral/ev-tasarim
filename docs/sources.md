@@ -19,8 +19,14 @@ Uygulamanın dayandığı araçlar ve iddialar, bağlantısıyla. Sürüme bağl
 alınmadı.** Her parçanın en, derinlik ve yüksekliği uygulamada tek tek değiştirilebilir;
 gerçek bir mobilyanın ölçüsü bilindiğinde o yazılmalı.
 
-## Sonraki aşamalar için araştırılanlar
+## Tarama, video ve fotoğraf (kullanılanlar ve araştırılanlar)
 
+- **Kullanılan sürümler:** `@sparkjsdev/spark` 2.2.0 (three ≥ 0.180 ister),
+  `@huggingface/transformers` 4.3.0 (`dist/transformers.min.js`, ONNX Runtime içinde),
+  model `onnx-community/depth-anything-v2-small`. three.js'in `USDZLoader`, `GLTFLoader`,
+  `OBJLoader`, `PLYLoader`'ı. Testte USDZ ve GLB, three'nin kendi dışa aktarıcılarıyla
+  üretilip geri okunuyor; gerçek bir RoomPlan dosyasıyla bu ortamda denenemedi.
+  <https://huggingface.co/onnx-community/depth-anything-v2-small>
 - **Fotoğraftan derinlik (2. aşama):** Depth Anything V2 Small, transformers.js ile
   tarayıcıda WebGPU'da çalışıyor; en küçük model fp16'da ~50 MB. Çıktısı *göreli* derinlik —
   metrik ölçü için kullanıcının bilinen bir ölçü (kapı yüksekliği gibi) vermesi gerekiyor.

@@ -40,6 +40,10 @@ elle düzeltilebilir; ölçülmüş gibi gösterilmez. Mobilya kataloğundaki ö
 başlangıç değerleridir, kaynaklı değildir — bu `data/furniture.json`'da ve
 `docs/sources.md`'de yazılı.
 
+Tarama katmanları (LiDAR, model, splat) referanstır, evin kendisi değildir: odalar
+onlardan otomatik türetilmez, kullanıcı üzerine çizer. Fotoğraf derinliği görseldir; ondan
+ölçü çıkarılıp plana yazılmaz.
+
 ## 5. Kaynak göster
 
 Bir araç, model ya da yöntem hakkındaki iddia `docs/sources.md`'ye bağlantısıyla yazılır.

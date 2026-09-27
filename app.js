@@ -4,6 +4,7 @@
 import { Plan2D, replaceRoom, replaceItem } from "./plan2d.js";
 import { View3D } from "./view3d.js";
 import * as store from "./store.js";
+import * as layers from "./layers.js";
 
 const E = globalThis.EvEngine;
 const $ = (s, r = document) => r.querySelector(s);
@@ -24,6 +25,7 @@ const S = {
   tab: "rooms",
   photoRoomId: null,
   photos: [],
+  layers: [],
   layout: "split"
 };
 
@@ -39,7 +41,7 @@ function issues() {
 }
 
 const api = {
-  get: () => ({ project: S.project, variant: variant(), catalog: S.catalog, style: style(), selection: S.selection, issues: issues() }),
+  get: () => ({ project: S.project, variant: variant(), catalog: S.catalog, style: style(), selection: S.selection, issues: issues(), layers: planLayers() }),
   begin() { if (!S.pending) S.pending = JSON.stringify(S.project); },
   apply(project, v) {
     if (v) project = { ...project, variants: project.variants.map((x) => (x.id === v.id ? v : x)) };
@@ -150,7 +152,7 @@ function renderTab() {
   document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === S.tab));
   const body = $("#tab-body");
   const focusId = document.activeElement && body.contains(document.activeElement) ? document.activeElement.id : null;
-  body.innerHTML = ({ rooms: tabRooms, furniture: tabFurniture, styles: tabStyles, variants: tabVariants, photos: tabPhotos })[S.tab]();
+  body.innerHTML = ({ rooms: tabRooms, furniture: tabFurniture, styles: tabStyles, variants: tabVariants, photos: tabPhotos, layers: tabLayers })[S.tab]();
   if (focusId && document.getElementById(focusId)) document.getElementById(focusId).focus();
 }
 
@@ -294,12 +296,142 @@ function tabPhotos() {
   if (!rooms.some((r) => r.id === S.photoRoomId)) S.photoRoomId = selectedRoomId() || rooms[0].id;
   const opts = rooms.map((r) => `<option value="${r.id}"${r.id === S.photoRoomId ? " selected" : ""}>${esc(r.name)}</option>`).join("");
   const photos = S.photos.filter((p) => p.roomId === S.photoRoomId);
-  const grid = photos.map((p) => `<div class="photo" data-act="open-photo" data-id="${p.id}"><img src="${p.url}" alt="${esc(p.name)}"><button data-act="delete-photo" data-id="${p.id}" title="Sil">×</button></div>`).join("");
+  const grid = photos.map((p) => `<div class="photo" data-act="open-photo" data-id="${p.id}"><img src="${p.url}" alt="${esc(p.name)}"><button class="depth-btn" data-act="depth-photo" data-id="${p.id}" title="Derinlikten kabartma (deneysel)">3B</button><button data-act="delete-photo" data-id="${p.id}" title="Sil">×</button></div>`).join("");
   return `
     <div class="field"><span>Oda</span><select id="photo-room" data-act="photo-room">${opts}</select></div>
     <label class="btn" style="display:block;text-align:center;margin:8px 0">Fotoğraf ekle<input type="file" id="photo-input" accept="image/*" multiple hidden></label>
     <div class="photos">${grid || `<p class="hint" style="grid-column:1/-1">Bu odanın fotoğrafı yok.</p>`}</div>
-    <p class="hint">Şimdilik referans panosu: tasarlarken gerçek odayı yan yana görmek için. Fotoğraflar yalnız bu tarayıcıda saklanır, hiçbir yere gönderilmez. Sonraki aşamada bu fotoğraflardan oda ölçüsü tahmini ve AI görselleştirme yapılacak.</p>`;
+    <p class="hint">Tasarlarken gerçek odayı yan yana görmek için. Fotoğraflar yalnız bu tarayıcıda saklanır, hiçbir yere gönderilmez.</p>
+    <p class="hint"><b>3B</b> düğmesi (deneysel): fotoğrafın derinliğini tarayıcıda bir yapay zekâ modeliyle (Depth Anything V2) tahmin edip fotoğrafı döndürülebilir bir kabartmaya çevirir. İlk seferde ~50 MB model indirilir. Sonuç <b>göreli</b> derinliktir, ölçü değildir.</p>`;
+}
+
+function tabLayers() {
+  const list = S.layers.map((L) => {
+    const t = L.transform;
+    const num = (f, v, step) => `<input type="number" id="ly-${f}-${L.id}" data-act="layer-t" data-field="${f}" data-id="${L.id}" value="${Math.round(v * 1000) / 1000}" step="${step}">`;
+    return `<div class="layer${L.error ? " err" : ""}">
+      <div class="row"><b>${esc(L.name)}</b><small class="hint">${L.kind === "splat" ? "splat" : "model"}</small></div>
+      ${L.error ? `<p class="hint" style="color:var(--bad)">${esc(L.error)}</p>` : `
+      <div class="row">
+        <label><input type="checkbox" data-act="layer-vis" data-id="${L.id}" ${L.visible ? "checked" : ""}> 3B'de</label>
+        ${L.kind === "mesh" ? `<label><input type="checkbox" data-act="layer-plan" data-id="${L.id}" ${L.planVisible ? "checked" : ""}> planda altlık</label>` : ""}
+        <label><input type="checkbox" data-act="layer-flip" data-id="${L.id}" ${t.flip ? "checked" : ""}> ters çevir</label>
+      </div>
+      <div class="grid">
+        <span>X cm</span>${num("x", t.x, 5)}<span>Y cm</span>${num("y", t.y, 5)}
+        <span>Açı °</span>${num("rot", t.rot, 1)}<span>Ölçek</span>${num("scale", t.scale, 0.01)}
+        <span>Yükseklik</span>${num("elev", t.elev, 1)}<span></span><span></span>
+      </div>
+      ${L.box ? `<p class="hint">Boyut: ${((L.box.maxX - L.box.minX) * t.scale).toFixed(2)} × ${((L.box.maxZ - L.box.minZ) * t.scale).toFixed(2)} × ${((L.box.maxY - L.box.minY) * t.scale).toFixed(2)} m</p>` : ""}`}
+      <div class="row">${L.error ? "" : `<button data-act="layer-center" data-id="${L.id}">Plana ortala</button>`}<button class="danger" data-act="layer-delete" data-id="${L.id}">Sil</button></div>
+    </div>`;
+  }).join("");
+  return `
+    <p class="hint">Evin gerçek taramasını altlık olarak yükleyin, odaları üzerine çizin ya da hizalayın. Dosya yalnız bu tarayıcıda açılır ve saklanır.</p>
+    <label class="btn" style="display:block;text-align:center;margin:8px 0">Dosya yükle<input type="file" id="layer-input" accept=".usdz,.glb,.gltf,.obj,.ply,.spz,.splat,.ksplat" hidden></label>
+    <div>${list || `<p class="hint">Katman yok.</p>`}</div>
+    <h3>Hangi dosya?</h3>
+    <ul class="hint">
+      <li><b>LiDAR (iPhone/iPad Pro):</b> ücretsiz tarama uygulamalarının (ör. OpenPlan3D Capture, Lagarsoft LiDAR Scanner) <b>USDZ</b> çıktısı. Ölçü metre olarak gelir, ölçek 1 kalmalı.</li>
+      <li><b>Video:</b> odayı yavaşça dolaşarak çekin, videoyu bir Gaussian splat eğiticisinde (ör. Brush) işleyin, çıkan <b>.ply / .spz</b> dosyasını yükleyin. Bu dosyaların ölçeği keyfîdir: bilinen bir ölçüye göre "Ölçek"i ayarlayın; yan yatık ya da ters gelirse "ters çevir".</li>
+      <li><b>3B model:</b> GLB/glTF (tek dosya), OBJ, .ply örgü.</li>
+    </ul>`;
+}
+
+function planLayers() {
+  return S.layers.filter((L) => L.box && !L.error).map((L) => ({ id: L.id, transform: L.transform, box: L.box, image: L.image, planVisible: !!L.planVisible }));
+}
+
+async function hydrateLayer(L) {
+  try {
+    const built = await layers.buildLayerObject(L);
+    L.box = built.box;
+    L.outer = layers.wrap(built.object);
+    L.splat = built.splat;
+    layers.applyTransform(L.outer, L.transform);
+    if (!built.splat) L.image = await layers.topDownImage(view.renderer, built.object, built.box, !!L.transform.flip);
+    L.error = null;
+  } catch (e) {
+    console.error(e);
+    L.error = "Açılamadı: " + (e && e.message ? e.message : e);
+  }
+}
+
+async function loadLayers() {
+  const list = await store.listLayers().catch(() => []);
+  S.layers = list.sort((a, b) => String(a.added).localeCompare(String(b.added)));
+  for (const L of S.layers) await hydrateLayer(L);
+  await syncLayers();
+}
+
+async function syncLayers() {
+  try {
+    await view.setLayers(S.layers.filter((L) => L.outer).map((L) => ({ outer: L.outer, splat: L.splat, visible: L.visible })));
+  } catch (e) {
+    toast("Splat görüntüleyici yüklenemedi: " + e.message, true);
+  }
+  plan.render();
+  if (S.tab === "layers") renderTab();
+}
+
+function persistLayer(L) {
+  const { outer, box, image, splat, error, ...rec } = L;
+  return store.putLayer(rec);
+}
+
+async function addLayerFile(file) {
+  const kind = await layers.detectKind(file);
+  if (!kind) { toast("Desteklenmeyen dosya: " + file.name, true); return; }
+  const L = { id: uid("t"), name: file.name, kind, blob: file, transform: E.defaultLayerTransform(), visible: true, planVisible: kind === "mesh", added: new Date().toISOString() };
+  toast("Açılıyor: " + file.name);
+  await hydrateLayer(L);
+  if (!L.error) {
+    // İlk yüklemede evin ortasına getir; ev yoksa başlangıç noktasına.
+    const pts = S.project.rooms.flatMap((r) => r.points);
+    const b = pts.length ? E.bbox(pts) : null;
+    L.transform = E.centerLayerOn(L.transform, L.box, b ? { x: (b.minX + b.maxX) / 2, y: (b.minY + b.maxY) / 2 } : { x: 0, y: 0 });
+    layers.applyTransform(L.outer, L.transform);
+  }
+  S.layers.push(L);
+  await persistLayer(L);
+  await syncLayers();
+  plan.fit();
+  view.hasFramed = false;
+  update3d();
+  toast(L.error ? L.error : "Katman eklendi: " + file.name, !!L.error);
+}
+
+async function setLayerTransform(L, t) {
+  const probs = E.layerTransformProblems(t);
+  if (probs.length) { toast("Geçersiz: " + probs[0], true); renderTab(); return; }
+  const flipChanged = !!t.flip !== !!L.transform.flip;
+  L.transform = t;
+  if (L.outer) layers.applyTransform(L.outer, t);
+  if (flipChanged && L.outer && !L.splat) L.image = await layers.topDownImage(view.renderer, L.outer.userData.inner.children[0], L.box, !!t.flip);
+  await persistLayer(L);
+  plan.render();
+  renderTab();
+}
+
+// ---------------------------------------------------------------- fotoğraf derinliği
+async function openDepth(photo) {
+  modal(`<div class="depth-view" id="depth-view"><div class="status" id="depth-status">Hazırlanıyor…</div></div>
+    <p class="hint">Deneysel. Derinlik göreli bir tahmindir (yakın/uzak), ölçü değildir. Fareyle döndürün.</p>`);
+  const status = (m) => { const el = document.getElementById("depth-status"); if (el) el.textContent = m; };
+  const dlg = $("#modal");
+  let dispose = null;
+  const onClose = () => { if (dispose) dispose(); dlg.removeEventListener("close", onClose); };
+  dlg.addEventListener("close", onClose);
+  try {
+    const { estimateDepth, reliefViewer } = await import("./depth.js");
+    const depth = await estimateDepth(photo.blob, status);
+    if (!dlg.open) return;
+    document.getElementById("depth-status").remove();
+    dispose = reliefViewer(document.getElementById("depth-view"), photo.url, depth);
+  } catch (e) {
+    console.error(e);
+    status("Derinlik çıkarılamadı: " + (e && e.message ? e.message : e) + ". Model dosyaları huggingface.co'dan indirilir; ağ bu adresi engelliyorsa çalışmaz.");
+  }
 }
 
 // ---------------------------------------------------------------- sağ panel
@@ -595,6 +727,26 @@ function bindLeft() {
         modal(`<div class="lightbox"><img src="${p.url}" alt=""><p class="hint">${esc(p.name)}</p></div>`);
         break;
       }
+      case "depth-photo": {
+        e.stopPropagation();
+        openDepth(S.photos.find((x) => x.id === id));
+        break;
+      }
+      case "layer-center": {
+        const L = S.layers.find((x) => x.id === id);
+        const pts = S.project.rooms.flatMap((r) => r.points);
+        const b = pts.length ? E.bbox(pts) : { minX: 0, maxX: 0, minY: 0, maxY: 0 };
+        setLayerTransform(L, E.centerLayerOn(L.transform, L.box, { x: (b.minX + b.maxX) / 2, y: (b.minY + b.maxY) / 2 }));
+        break;
+      }
+      case "layer-delete": {
+        const L = S.layers.find((x) => x.id === id);
+        if (!confirm(`"${L.name}" katmanı silinsin mi?`)) return;
+        S.layers = S.layers.filter((x) => x.id !== id);
+        if (L.image) URL.revokeObjectURL(L.image);
+        store.deleteLayer(id).then(syncLayers);
+        break;
+      }
       case "delete-photo": {
         e.stopPropagation();
         store.deletePhoto(id).then(loadPhotos);
@@ -608,6 +760,15 @@ function bindLeft() {
     const act = t.dataset.act;
     const room = roomById(selectedRoomId());
     if (t.id === "photo-input") { addPhotos(t.files); return; }
+    if (t.id === "layer-input") { const f = t.files[0]; t.value = ""; if (f) addLayerFile(f); return; }
+    if (act && act.startsWith("layer-")) {
+      const L = S.layers.find((x) => x.id === t.dataset.id);
+      if (act === "layer-vis") { L.visible = t.checked; persistLayer(L); syncLayers(); }
+      if (act === "layer-plan") { L.planVisible = t.checked; persistLayer(L); plan.render(); }
+      if (act === "layer-flip") setLayerTransform(L, { ...L.transform, flip: t.checked });
+      if (act === "layer-t") setLayerTransform(L, { ...L.transform, [t.dataset.field]: parseFloat(t.value) });
+      return;
+    }
     switch (act) {
       case "room-name": if (t.value.trim()) api.commit(withRoom({ ...room, name: t.value.trim() })); break;
       case "room-kind": api.commit(withRoom({ ...room, kind: t.value })); break;
@@ -857,7 +1018,8 @@ async function init() {
   renderAll();
   requestAnimationFrame(() => plan.fit());
   loadPhotos();
-  window.__ev = { S, api, E, view, plan }; // tarayıcı konsolundan ve duman testinden erişim için
+  loadLayers();
+  window.__ev = { S, api, E, view, plan, addLayerFile }; // tarayıcı konsolundan ve duman testinden erişim için
 }
 
 init().catch((e) => {

@@ -1,8 +1,8 @@
-// Tarayıcı içi kalıcı depo (IndexedDB). Proje ve fotoğraflar bu cihazda kalır; hiçbir
+// Tarayıcı içi kalıcı depo (IndexedDB). Proje, fotoğraflar ve referans katmanları bu cihazda kalır; hiçbir
 // yere gönderilmez. Başka cihaza taşımak için JSON dışa/içe aktarma kullanılır.
 
 const DB_NAME = "ev-tasarim";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let dbPromise = null;
 
@@ -17,6 +17,8 @@ function open() {
         const s = db.createObjectStore("photos", { keyPath: "id" });
         s.createIndex("roomId", "roomId");
       }
+      // Sürüm 2: LiDAR / 3B model / splat referans katmanları.
+      if (!db.objectStoreNames.contains("layers")) db.createObjectStore("layers", { keyPath: "id" });
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -70,4 +72,16 @@ export function deletePhoto(id) {
 
 export function clearPhotos() {
   return tx("photos", "readwrite", (s) => req(s.clear()));
+}
+
+export function listLayers() {
+  return tx("layers", "readonly", (s) => req(s.getAll()));
+}
+
+export function putLayer(layer) {
+  return tx("layers", "readwrite", (s) => req(s.put(layer)));
+}
+
+export function deleteLayer(id) {
+  return tx("layers", "readwrite", (s) => req(s.delete(id)));
 }

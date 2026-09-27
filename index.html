@@ -11,7 +11,9 @@
 {
   "imports": {
     "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
+    "@sparkjsdev/spark": "https://cdn.jsdelivr.net/npm/@sparkjsdev/spark@2.2.0/dist/spark.module.min.js",
+    "@huggingface/transformers": "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.0/dist/transformers.min.js"
   }
 }
 </script>
@@ -58,6 +60,7 @@
       <button data-tab="styles">Stil</button>
       <button data-tab="variants">Varyant</button>
       <button data-tab="photos">Fotoğraf</button>
+      <button data-tab="layers" title="LiDAR taraması, 3B model ya da videodan splat">Tarama</button>
     </nav>
     <div class="tab-body" id="tab-body"></div>
   </aside>

@@ -66,6 +66,9 @@ export class View3D {
 
     this.world = new THREE.Group();
     this.scene.add(this.world);
+    // Referans katmanları (LiDAR, model, splat) ayrı tutulur; sahne her kurulduğunda silinmez.
+    this.layerRoot = new THREE.Group();
+    this.scene.add(this.layerRoot);
 
     this.raycaster = new THREE.Raycaster();
     this.clock = new THREE.Timer();
@@ -326,6 +329,17 @@ export class View3D {
     if (hit && (!hits[0] || hits[0] === hit || hits[0].distance >= hit.distance - 1e-6)) this.onSelect({ kind: "item", id: hit.object.userData.itemId });
     else if (hits[0] && hits[0].object.userData.roomId) this.onSelect({ kind: "room", id: hits[0].object.userData.roomId });
     else this.onSelect(null);
+  }
+
+  async setLayers(entries) {
+    this.layerRoot.clear();
+    const needSpark = entries.some((e) => e.visible && e.splat);
+    if (needSpark && !this.spark) {
+      const { SparkRenderer } = await import("@sparkjsdev/spark");
+      this.spark = new SparkRenderer({ renderer: this.renderer });
+      this.scene.add(this.spark);
+    }
+    entries.forEach((e) => { if (e.visible) this.layerRoot.add(e.outer); });
   }
 
   // Görünümün küçük resmi (varyant karşılaştırması için).
