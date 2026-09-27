@@ -35,8 +35,10 @@ export async function reconstruct(photos, onStatus) {
   } catch (e) {
     throw new Error("demoya bağlanılamadı (kapalı ya da uykuda olabilir): " + (e.message || e));
   }
-  const ep = E.da3Endpoints(await app.view_api());
+  const api = await app.view_api();
+  const ep = E.da3Endpoints(api);
   if (ep.error) throw new Error(ep.error);
+  const runParams = api.named_endpoints[ep.run].parameters;
 
   onStatus(`${photos.length} fotoğraf hazırlanıyor…`);
   const files = [];
@@ -51,7 +53,20 @@ export async function reconstruct(photos, onStatus) {
   if (!targetDir || typeof targetDir !== "string") throw new Error("demo fotoğrafları kabul etmedi");
 
   onStatus("3B hesaplanıyor (sırada bekleme olabilir; genelde 1–3 dakika)…");
-  const res = await app.predict(ep.run, E.da3RunArgs(targetDir));
+  let args = E.da3RunArgs(targetDir, runParams), res;
+  // Demo bir seçeneği reddederse (yayındaki sürüm koddan farklı olabilir), hatadaki
+  // listeden ilk seçenekle en çok üç kez yeniden dene.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      res = await app.predict(ep.run, args);
+      break;
+    } catch (e) {
+      const msg = (e && (e.message || e.status?.message)) || String(e);
+      const fixed = attempt < 3 && E.da3FixChoice(args, msg);
+      if (!fixed) throw new Error(msg);
+      args = fixed;
+    }
+  }
   const out = res && res.data && res.data[0];
   const url = out && (out.url || (typeof out === "string" ? out : null));
   if (!url) throw new Error("demo 3B dosyası döndürmedi" + (res && res.data && res.data[1] ? ": " + String(res.data[1]).slice(0, 200) : ""));
