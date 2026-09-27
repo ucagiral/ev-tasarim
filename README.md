@@ -40,25 +40,32 @@ iner.
 - **Fotoğraflar:** her odaya referans fotoğrafı ekle.
 - Geri al / yinele, PNG görüntü indirme, JSON dışa/içe aktarma.
 
-## Otomatik oda: bütün fotoğraflardan (kapı gerekmez)
+## Otomatik oda: yalnız fotoğraflar
 
-1. [Depth Anything 3 demosunda](https://huggingface.co/spaces/depth-anything/depth-anything-3)
-   odanın fotoğraflarını yükleyin (her yönden, örtüşen 5–20 kare; duvar dipleri ve tavan
-   görünsün), çalıştırın, **scene.glb**'yi indirin. Fotoğraflar Hugging Face'e gider.
-2. Dosyayı uygulamaya bırakın (ya da Fotoğraf → "scene.glb seç"). Uygulama nokta
-   bulutundan zemini, tavanı ve duvarları kendisi bulur; en, derinlik ve tavan yüksekliğini
-   gösterir. Tavan yüksekliğini biliyorsanız yazın, bütün ölçüler ona göre ölçeklenir.
-3. "Plana oda olarak ekle". Oda "tahmini" işaretlenir; tarama katmanı gizlenir
-   (Tarama'dan açılabilir).
+**Fotoğraf** sekmesinde odanın fotoğraflarını ekleyin — hepsi bu. Hiçbir şey seçilmez,
+dokunulmaz: uygulama fotoğrafları Depth Anything 3'ün ücretsiz çevrimiçi demosuna
+([depth-anything/depth-anything-3](https://huggingface.co/spaces/depth-anything/depth-anything-3),
+`@gradio/client` ile) gönderir, gelen 3B nokta bulutundan odanın enini, derinliğini ve tavan
+yüksekliğini çıkarır ve odayı plana ekler ("tahmini" işaretli). Fotoğraflar o odaya bağlanır.
+
+- İyi sonuç: her yönden, birbiriyle örtüşen 5–20 fotoğraf; duvar dipleri ve tavan görünsün.
+- Fotoğraflar Hugging Face'e gider (Umut'un kararı). Demo meşgulse ya da kotası dolmuşsa
+  neden gösterilir ve "Tekrar dene" çıkar.
+- Bir odaya bağlı grupta fotoğraf eklemek oda oluşturmaz; yalnız "Odaya bağlı değil"
+  grubunda.
+- Otomatik olmazsa elle yollar Fotoğraf sekmesinde "Otomatik olmazsa" altında: demoyu elle
+  kullanıp scene.glb'yi bırakmak ya da tek fotoğrafta kapıyı işaretlemek.
 
 Nasıl (`roomFromPointCloud`): yukarı yön ve zemin/tavan RANSAC ile düzlem aranarak, duvar
 yönü duvar noktalarının iz düşüm histogramının en keskin olduğu açıyla, duvar yerleri
 uçlardaki yoğunluk tepeleriyle bulunur. Varsayım: oda dikdörtgen. Az görünen duvar ve
 olağan dışı tavan yüksekliği uyarı olarak gösterilir.
 
-Uygulama fotoğrafları demoya kendisi göndermiyor: bu geliştirme ortamı huggingface.co'ya
-erişemediği için o bağlantı test edilemezdi; test edilemeyen bir yol koymak yerine dosya
-elle taşınıyor. Sonuç aynı modelden gelir.
+Demo bağlantısı (`reconstruct.js`) canlı demoyla test edilmedi: geliştirme ortamı
+huggingface.co'ya erişemiyor. Uç adları ve argümanlar demonun kaynak kodundan
+(`gradio_app.py`) alındı ve çalışma anında demonun kendi arayüz tanımıyla (`view_api`)
+doğrulanıyor; uyuşmazsa çağırmadan önce durup nedenini söylüyor. Akışın geri kalanı
+(fotoğraf → 3B → oda → plan) sahte bir 3B yanıtıyla uçtan uca test ediliyor.
 
 ## Tek fotoğraftan, kapıyla
 
@@ -130,6 +137,7 @@ Kaynaklar ve neden bu araçlar: [`docs/sources.md`](docs/sources.md).
 | `depth.js` | Fotoğraftan derinlik (transformers.js) ve kabartma görüntüleyici. |
 | `photoroom.js` | Fotoğraftan oda aracı (dokunma ve gösterim; hesap `engine.js`'de). |
 | `media.js` | Görsel hazırlama: HEIC→JPEG (heic-to), odak uzaklığı (exifr). |
+| `reconstruct.js` | Fotoğrafları Depth Anything 3 demosuna gönderip scene.glb alır (`@gradio/client`). |
 | `store.js` | IndexedDB: proje, fotoğraflar, katmanlar. |
 | `styles/*.json` | Stiller — veri, kod değil. Yeni stil = yeni dosya + `styles/index.json`'a bir satır. |
 | `data/furniture.json` | Mobilya kataloğu. |

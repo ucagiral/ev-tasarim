@@ -7,6 +7,7 @@ import * as store from "./store.js";
 import * as layers from "./layers.js";
 import { isImageFile, prepareImage } from "./media.js";
 import { openPhotoRoom } from "./photoroom.js";
+import { reconstruct } from "./reconstruct.js";
 
 const E = globalThis.EvEngine;
 const $ = (s, r = document) => r.querySelector(s);
@@ -308,7 +309,9 @@ function tabPhotos() {
     <div class="field"><span>Oda</span><select id="photo-room" data-act="photo-room">${opts}</select></div>
     <label class="btn" style="display:block;text-align:center;margin:8px 0">Fotoğraf ekle<input type="file" id="photo-input" accept="image/*,.heic,.heif" multiple hidden></label>
     <div class="photos">${grid || `<p class="hint" style="grid-column:1/-1">Burada fotoğraf yok. Dosyaları sayfanın üstüne sürükleyip bırakabilirsiniz de.</p>`}</div>
-    <h3>Otomatik: bütün fotoğraflardan</h3>
+    <p class="hint"><b>Odanın fotoğraflarını ekleyin; oda kendiliğinden oluşur.</b> Her yönden, birbiriyle örtüşen 5–20 fotoğraf en iyisi; duvar dipleri ve tavan görünsün. Fotoğraflar Depth Anything 3'ün çevrimiçi demosuna gönderilir, 3B'den odanın eni, derinliği ve tavanı çıkarılır.</p>
+    <details class="hint"><summary>Otomatik olmazsa: elle yollar</summary>
+    <h3>Demo ile elle</h3>
     <p class="hint">Kapı gerekmez. Odanın fotoğraflarından 3B nokta bulutunu <b>Depth Anything 3</b> üretir (ücretsiz çevrimiçi demo; fotoğraflar Hugging Face'e yüklenir), uygulama da ondan odanın enini, derinliğini ve tavan yüksekliğini kendisi çıkarır.</p>
     <ol class="hint">
       <li><a href="https://huggingface.co/spaces/depth-anything/depth-anything-3" target="_blank" rel="noopener">Depth Anything 3 demosunu açın</a>.</li>
@@ -324,7 +327,8 @@ function tabPhotos() {
       <li>Kapının dört köşesi ve zeminin duvara değdiği köşeler görünsün; eşya köşeyi kapatıyorsa tahmini yere dokunun.</li>
       <li>Sonuç tahmindir; aralığıyla gösterilir ve planda sürükleyerek düzeltilebilir.</li>
     </ul>
-    <p class="hint">Fotoğraflar yalnız bu tarayıcıda saklanır. iPhone'un HEIC fotoğrafları gerekirse JPEG'e çevrilir.</p>
+    </details>
+    <p class="hint">iPhone'un HEIC fotoğrafları gerekirse JPEG'e çevrilir.</p>
     <p class="hint"><b>3B</b> (deneysel): fotoğrafı tarayıcıda Depth Anything V2 ile göreli derinlikten döndürülebilir kabartmaya çevirir; ölçü vermez. İlk seferde ~50 MB model iner.</p>`;
 }
 
@@ -402,7 +406,7 @@ function persistLayer(L) {
   return store.putLayer(rec);
 }
 
-async function addLayerFile(file) {
+async function addLayerFile(file, opts = {}) {
   const kind = await layers.detectKind(file);
   if (!kind) { toast("Desteklenmeyen dosya: " + file.name, true); return; }
   const L = { id: uid("t"), name: file.name, kind, blob: file, transform: E.defaultLayerTransform(), visible: true, planVisible: kind === "mesh", added: new Date().toISOString() };
@@ -421,7 +425,7 @@ async function addLayerFile(file) {
   plan.fit();
   view.hasFramed = false;
   update3d();
-  toast(L.error ? L.error : "Katman eklendi: " + file.name, !!L.error);
+  if (!opts.quiet) toast(L.error ? L.error : "Katman eklendi: " + file.name, !!L.error);
   return L;
 }
 
@@ -969,15 +973,64 @@ async function addPhotos(files) {
   let ok = 0;
   const failed = [];
   if (files.length) toast(`${files.length} fotoğraf hazırlanıyor…`);
+  const added = [];
   for (const f of files) {
     const r = await prepareImage(f);
     if (r.error) { failed.push(`${f.name}: ${r.error}`); continue; }
-    await store.addPhoto({ id: uid("f"), roomId: S.photoRoomId || "", name: r.name, blob: r.blob, f35: r.f35, added: new Date().toISOString() });
+    const rec = { id: uid("f"), roomId: S.photoRoomId || "", name: r.name, blob: r.blob, f35: r.f35, added: new Date().toISOString() };
+    await store.addPhoto(rec);
+    added.push(rec);
     ok++;
   }
   await loadPhotos();
-  if (failed.length) modal(`<h3>${ok} fotoğraf eklendi, ${failed.length} eklenemedi</h3><ul>${failed.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`);
-  else toast(`${ok} fotoğraf eklendi.`);
+  if (failed.length) toast(`${failed.length} dosya eklenemedi: ${failed.join("; ")}`, true);
+  // Umut'un isteği: fotoğraflar eklenince oda kendiliğinden oluşsun, hiçbir şey seçilmesin.
+  // Odaya bağlı olmayan fotoğraflar yeni bir oda demektir.
+  // (window.__evNoAutoRoom: yalnız tarayıcı testinin diğer adımları için kapatma anahtarı.)
+  if (added.length && !(S.photoRoomId && roomById(S.photoRoomId)) && !window.__evNoAutoRoom) autoRoomFromPhotos(added);
+  else if (ok) toast(`${ok} fotoğraf eklendi.`);
+}
+
+// Fotoğraflar → Depth Anything 3 → nokta bulutu → oda. Onay sormaz; oda "tahmini" işaretli
+// eklenir, hata olursa nedeni ve "Tekrar dene" gösterilir.
+async function autoRoomFromPhotos(photos) {
+  modal(`<div id="auto-room"><h3>Fotoğraflardan oda oluşturuluyor</h3><p id="ar-status">Başlıyor…</p><p class="hint">${photos.length} fotoğraf. Fotoğraflar Depth Anything 3'ün çevrimiçi demosuna (Hugging Face) gönderilir.</p></div>`);
+  const status = (m) => { const el = document.getElementById("ar-status"); if (el) el.textContent = m; };
+  try {
+    const glb = await reconstruct(photos, status);
+    status("Oda şekli çıkarılıyor…");
+    const L = await addLayerFile(new File([glb], "scene.glb", { type: "model/gltf-binary" }), { quiet: true });
+    if (!L || L.error) throw new Error((L && L.error) || "3B dosyası açılamadı");
+    const obj = L.outer.userData.inner.children[0];
+    const r = E.roomFromPointCloud(layers.collectPoints(obj), { rand: E.seededRandom(1) });
+    if (r.error) throw new Error(r.error);
+    const h = r.height != null ? Math.round(r.height) : 260;
+    const n = S.project.rooms.length + 1;
+    const room = E.newRectRoom(S.project, uid("oda"), "Oda " + n, "salon", Math.round(r.width), Math.round(r.depth), Math.max(180, Math.min(600, h)));
+    room.estimate = { source: "photos", layerId: L.id, photoIds: photos.map((p) => p.id), warnings: r.warnings };
+    api.commit({ ...S.project, rooms: [...S.project.rooms, room] });
+    if (!S.project.rooms.some((x) => x.id === room.id)) throw new Error("oda plana eklenemedi");
+    L.visible = false; L.planVisible = false; persistLayer(L); syncLayers();
+    for (const p of photos) await store.addPhoto({ ...stripUrl(p), roomId: room.id });
+    await loadPhotos();
+    S.selection = { kind: "room", id: room.id };
+    S.tab = "rooms";
+    if ($("#modal").open) $("#modal").close();
+    renderAll();
+    plan.fit();
+    view.hasFramed = false;
+    update3d();
+    toast(`${room.name} oluşturuldu: ${Math.round(r.width)} × ${Math.round(r.depth)} cm, tavan ${h} cm (tahmini).${r.warnings.length ? " " + r.warnings[0] : ""}`, !!r.warnings.length);
+  } catch (e) {
+    console.error(e);
+    const box = document.getElementById("auto-room");
+    const msg = "Oda oluşturulamadı: " + (e && e.message ? e.message : e);
+    if (box) {
+      box.innerHTML = `<h3>Oda oluşturulamadı</h3><p class="pr-err">${esc(msg)}</p><button class="primary" id="ar-retry">Tekrar dene</button>`;
+      document.getElementById("ar-retry").onclick = () => autoRoomFromPhotos(photos);
+      if (!$("#modal").open) $("#modal").showModal();
+    } else toast(msg, true);
+  }
 }
 
 // Hangi seçiciden ya da sürükle-bırakla gelirse gelsin: görseller fotoğraf panosuna,
@@ -1181,7 +1234,7 @@ async function init() {
   requestAnimationFrame(() => plan.fit());
   loadPhotos();
   loadLayers();
-  window.__ev = { S, api, E, view, plan, addLayerFile, addFiles, openRoomFromPhoto, openScanRoom }; // tarayıcı konsolundan ve duman testinden erişim için
+  window.__ev = { S, api, E, view, plan, addLayerFile, addFiles, openRoomFromPhoto, openScanRoom, autoRoomFromPhotos }; // tarayıcı konsolundan ve duman testinden erişim için
 }
 
 init().catch((e) => {

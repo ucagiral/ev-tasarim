@@ -8,6 +8,7 @@
     "serve": "npx http-server -c-1 -p 8080 ."
   },
   "devDependencies": {
+    "@gradio/client": "^2.7.0",
     "@huggingface/transformers": "4.3.0",
     "@sparkjsdev/spark": "2.2.0",
     "exifr": "^7.1.3",

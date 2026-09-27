@@ -571,6 +571,39 @@ check("kapı köşeleri: eğik çekilmiş kapıda sıralama doğru", () => {
   if (k.bl !== bl || k.br !== br || k.tr !== tr || k.tl !== tl) return JSON.stringify(k);
 });
 
+// ---------------------------------------------------------------- Depth Anything 3 demosu
+// Demonun kodundaki (gradio_app.py) olay bağları: handle_uploads iki olaya bağlı (video ve
+// görsel), gradio_demo 11 girdili. view_api bunları bu adlarla döndürür.
+const DA3_API = {
+  named_endpoints: {
+    "/handle_uploads": { parameters: [{}, {}, {}] },
+    "/handle_uploads_1": { parameters: [{}, {}, {}] },
+    "/clear_fields": { parameters: [] },
+    "/update_log": { parameters: [] },
+    "/gradio_demo": { parameters: new Array(11).fill({}) },
+    "/measure": { parameters: [{}, {}, {}] }
+  }
+};
+
+check("DA3 demosu: uçlar canlı arayüzden seçilir", () => {
+  const e = E.da3Endpoints(DA3_API);
+  if (e.error || e.upload !== "/handle_uploads" || e.run !== "/gradio_demo") return JSON.stringify(e);
+  const onlySuffixed = { named_endpoints: { "/handle_uploads_1": { parameters: [{}, {}, {}] }, "/gradio_demo_2": { parameters: new Array(11).fill({}) } } };
+  const e2 = E.da3Endpoints(onlySuffixed);
+  if (e2.upload !== "/handle_uploads_1" || e2.run !== "/gradio_demo_2") return JSON.stringify(e2);
+});
+
+check("DA3 demosu: arayüz değişmişse sessizce yanlış çağırmaz", () => {
+  if (!E.da3Endpoints({ named_endpoints: { "/predict": { parameters: [] } } }).error) return "uç yokken kabul edildi";
+  const changed = { named_endpoints: { "/handle_uploads": { parameters: [{}, {}, {}] }, "/gradio_demo": { parameters: new Array(12).fill({}) } } };
+  if (!E.da3Endpoints(changed).error) return "parametre sayısı değişmişken kabul edildi";
+});
+
+check("DA3 demosu: gradio_demo argümanları demodaki sırayla ve 11 tane", () => {
+  const a = E.da3RunArgs("/tmp/x");
+  if (a.length !== 11 || a[0] !== "/tmp/x" || a[1] !== false || a[4] !== "upper_bound_resize" || a[7] !== false) return JSON.stringify(a);
+});
+
 // ---------------------------------------------------------------- sonuç
 console.log(`${passed} geçti, ${failures.length} kaldı`);
 if (failures.length) {
