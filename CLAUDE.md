@@ -46,8 +46,11 @@ kapısının ölçüsünü söylerse o yazılır. Umut odaları metreyle ölçme
 ölçü girmeyi şart koşmamalı. Telefonu iPhone 16 Plus: LiDAR yok, fotoğraflar HEIC.
 
 Umut her fotoğrafta kapı olmadığını ve odanın şeklini fotoğrafların kendisinden
-çıkarılmasını istedi; gizlilik endişesi yok, "hangisi kaliteliyse". Bu yüzden asıl yol:
-Depth Anything 3 demosunun scene.glb'si → `roomFromPointCloud`. Kapı yöntemi yedek.
+çıkarılmasını istedi; gizlilik endişesi yok, "hangisi kaliteliyse". Sonra açıkça: "SADECE VE
+SADECE FOTOĞRAFLARDAN ODA YARATSIN. BEN BİR ŞEY SEÇMEK İSTEMİYORUM." Bu yüzden asıl yol:
+fotoğraf eklenir → uygulama Depth Anything 3 demosuna kendisi gönderir → `roomFromPointCloud`
+→ oda onaysız eklenir. Kullanıcıdan seçim, dokunma ya da ölçü isteyen bir adımı bu yola
+geri koyma. Kapı yöntemi ve elle scene.glb yalnız yedek.
 
 Tarama katmanları (LiDAR, model, splat) referanstır; bir taramadan oda yalnız kullanıcı
 "Oda çıkar" dediğinde ya da scene.glb bıraktığında, "tahmini" işaretiyle türetilir. Fotoğraf derinliği görseldir; ondan

@@ -1030,6 +1030,33 @@
     };
   }
 
+  // ------------------------------------------------------------------ Depth Anything 3 demosu
+  //
+  // Demo (Gradio) iki adımda çalışır: fotoğraflar "handle_uploads" ile sunucuya yüklenir ve
+  // bir klasör yolu döner; "gradio_demo" o klasörü işleyip scene.glb verir. Uç adları
+  // demonun kodundaki fonksiyon adlarıdır; aynı fonksiyon iki olaya bağlı olduğundan
+  // "_1" gibi ekler alabilir. Canlı arayüzden (view_api) seçilir, varsayılmaz.
+  function da3Endpoints(api) {
+    var names = Object.keys((api && api.named_endpoints) || {});
+    function pick(base) {
+      var exact = names.filter(function (n) { return n === "/" + base; });
+      if (exact.length) return exact[0];
+      var near = names.filter(function (n) { return n.indexOf("/" + base) === 0; }).sort();
+      return near[0] || null;
+    }
+    var upload = pick("handle_uploads"), run = pick("gradio_demo");
+    if (!upload || !run) return { error: "demonun arayüzü beklenenden farklı (" + names.join(", ") + ")" };
+    var nUp = api.named_endpoints[upload].parameters.length, nRun = api.named_endpoints[run].parameters.length;
+    if (nUp !== 3 || nRun !== 11) return { error: "demonun parametreleri değişmiş (" + nUp + ", " + nRun + ")" };
+    return { upload: upload, run: run };
+  }
+
+  // gradio_demo'nun 11 girdisi, demodaki sırayla. Kamera tel çerçevesi kapalı (oda
+  // çıkarmayı etkilemesin), Gaussian splat kapalı (uzun sürer, gereksiz).
+  function da3RunArgs(targetDir) {
+    return [targetDir, false, false, false, "upper_bound_resize", 30, 1000000, false, "saddle_balanced", "extend", "high"];
+  }
+
   function seededRandom(seed) {
     var s = seed >>> 0 || 1;
     return function () { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
@@ -1110,6 +1137,8 @@
     roomFromPhoto: roomFromPhoto,
     photoRoomSpread: photoRoomSpread,
     roomFromPointCloud: roomFromPointCloud,
+    da3Endpoints: da3Endpoints,
+    da3RunArgs: da3RunArgs,
     seededRandom: seededRandom
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);

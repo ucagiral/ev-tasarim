@@ -37,7 +37,7 @@ const errors = [];
 page.on("pageerror", (e) => errors.push("pageerror: " + e.message));
 page.on("console", (m) => {
   // Derinlik adımında bilerek engellenen model indirmesi hata olarak sayılmaz.
-  if (m.type() === "error" && !/huggingface|Failed to fetch|net::ERR_FAILED|Derinlik/i.test(m.text())) errors.push("console: " + m.text());
+  if (m.type() === "error" && !/huggingface|Failed to fetch|net::ERR_FAILED|Derinlik|\(sahte\)/i.test(m.text())) errors.push("console: " + m.text());
 });
 page.on("dialog", (d) => d.type() === "prompt" ? d.accept("Yeni ad") : d.accept());
 // CDN'deki paketleri node_modules'tan ver: /npm/<paket>@<sürüm>/<yol>
@@ -61,6 +61,11 @@ const assert = (c, m) => { if (!c) throw new Error(m); };
 await page.goto(base);
 await page.waitForFunction(() => window.__ev && window.__ev.S.project, null, { timeout: 20000 });
 await page.waitForTimeout(1500);
+
+// Fotoğraf eklenince otomatik oda (Depth Anything 3) bu ortamda çalışamaz (huggingface.co
+// kapalı); onu sınayan adım dışında kapatılır.
+await page.addInitScript(() => { window.__evNoAutoRoom = true; });
+await ev(() => { window.__evNoAutoRoom = true; });
 
 await step("örnek ev açılır, geçerli ve sorunsuz", async () => {
   const r = await ev(() => { const { S, E } = window.__ev; const v = E.activeVariant(S.project); return { rooms: S.project.rooms.length, items: v.furniture.length, errs: E.validateProject(S.project, S.catalog), issues: E.layoutIssues(S.project, v, S.catalog) }; });
@@ -426,6 +431,65 @@ await step("taramadan oda: scene.glb bırakılınca oda kendiliğinden çıkar",
   await page.click("#sr-add");
   const r = await ev(() => { const x = window.__ev.S.project.rooms.at(-1); return { n: window.__ev.S.project.rooms.length, est: x.estimate && x.estimate.source }; });
   assert(r.n === before + 1 && r.est === "scan", JSON.stringify(r));
+});
+
+await step("otomatik: fotoğraflar eklenince oda kendiliğinden oluşur (sahte DA3 yanıtıyla)", async () => {
+  // Demo yerine, gönderilen fotoğrafları sayıp 3.6 × 4.8 × 2.7 m'lik bir odanın nokta
+  // bulutunu GLB olarak döndüren sahte yeniden kurucu.
+  await ev(() => {
+    window.__evNoAutoRoom = false;
+    window.__evReconstruct = async (photos, status) => {
+      window.__evSent = photos.length;
+      status("sahte: 3B hesaplanıyor");
+      const THREE = await import("three");
+      const { GLTFExporter } = await import("three/addons/exporters/GLTFExporter.js");
+      const rand = window.__ev.E.seededRandom(11), pts = [];
+      const W = 3.6, D = 4.8, H = 2.7, nz = () => (rand() - 0.5) * 0.02, add = (x, y, z) => pts.push(x + nz(), y + nz(), z + nz());
+      for (let i = 0; i < 15000; i++) add(rand() * W, 0, rand() * D);
+      for (let i = 0; i < 6000; i++) add(rand() * W, H, rand() * D);
+      for (let i = 0; i < 6000; i++) { add(rand() * W, rand() * H, 0); add(0, rand() * H, rand() * D); add(W, rand() * H, rand() * D); add(rand() * W, rand() * H, D); }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
+      const cloud = new THREE.Points(g, new THREE.PointsMaterial());
+      cloud.rotation.set(-0.1, 0.9, 0.05);
+      return new Blob([await new GLTFExporter().parseAsync(cloud, { binary: true })]);
+    };
+  });
+  await page.click("#tabs [data-tab=photos]");
+  await page.selectOption("#photo-room", "");
+  const before = await ev(() => window.__ev.S.project.rooms.length);
+  const png = await ev(async () => {
+    const c = document.createElement("canvas"); c.width = 64; c.height = 48;
+    c.getContext("2d").fillRect(0, 0, 64, 48);
+    return Array.from(new Uint8Array(await (await new Promise((r) => c.toBlob(r))).arrayBuffer()));
+  });
+  const files = [1, 2, 3].map((i) => ({ name: `IMG_${i}.png`, mimeType: "image/png", buffer: Buffer.from(png) }));
+  await page.setInputFiles("#photo-input", files);
+  await page.waitForFunction((n) => window.__ev.S.project.rooms.length === n + 1, before, { timeout: 30000 });
+  // Oda eklendikten sonra fotoğraflar ona bağlanır ve pencere kapanır.
+  await page.waitForFunction(() => { const x = window.__ev.S.project.rooms.at(-1); return window.__ev.S.photos.filter((p) => p.roomId === x.id).length === 3 && !document.getElementById("modal").open; }, null, { timeout: 15000 });
+  const r = await ev(() => { const { S, E } = window.__ev; const x = S.project.rooms.at(-1); return { w: E.wall(x, 0).length, d: E.wall(x, 1).length, h: x.height, est: x.estimate, sent: window.__evSent, photos: S.photos.filter((p) => p.roomId === x.id).length }; });
+  const dims = [r.w, r.d].sort((a, b) => a - b);
+  assert(Math.abs(dims[0] - 360) <= 6 && Math.abs(dims[1] - 480) <= 6, JSON.stringify(r));
+  assert(Math.abs(r.h - 270) <= 6, `tavan ${r.h}`);
+  assert(r.est && r.est.source === "photos" && r.sent === 3 && r.photos === 3, JSON.stringify(r));
+  assert(!(await ev(() => document.getElementById("modal").open)), "pencere açık kaldı");
+  await page.screenshot({ path: join(SHOTS, "12-auto-room.png") });
+});
+
+await step("otomatik: demo hata verirse nedeni ve Tekrar dene gösterilir", async () => {
+  await ev(() => { window.__evReconstruct = async () => { throw new Error("GPU kotası doldu (sahte)"); }; });
+  await page.click("#tabs [data-tab=photos]");
+  await page.selectOption("#photo-room", "");
+  const png = await ev(async () => {
+    const c = document.createElement("canvas"); c.width = 10; c.height = 10;
+    return Array.from(new Uint8Array(await (await new Promise((r) => c.toBlob(r))).arrayBuffer()));
+  });
+  await page.setInputFiles("#photo-input", { name: "x.png", mimeType: "image/png", buffer: Buffer.from(png) });
+  await page.waitForSelector("#ar-retry", { timeout: 15000 });
+  assert(/GPU kotası/.test(await page.textContent("#auto-room")), "neden gösterilmedi");
+  await page.click("dialog[open] button.primary:not(#ar-retry)");
+  await ev(() => { window.__evNoAutoRoom = true; delete window.__evReconstruct; });
 });
 
 await step("kayıt yeniden yüklemede geri gelir", async () => {

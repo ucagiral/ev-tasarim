@@ -100,3 +100,17 @@ gerçek bir mobilyanın ölçüsü bilindiğinde o yazılmalı.
   dolaplı ve aykırı noktalı sentetik taramadan odayı ±5 cm buluyor. `smoke` aynı türden bir
   nokta bulutunu GLB olarak bırakıp arayüzden 380×420×260 cm'yi ±6 cm buluyor. Gerçek bir DA3
   çıktısıyla henüz denenmedi (bu ortam huggingface.co'ya erişemiyor).
+
+## Demoya otomatik gönderim
+
+- `@gradio/client` 2.7.0 (`dist/browser.js`, bağımlılıksız tek dosya): Gradio uygulamalarını
+  tarayıcıdan çağırır; `Client.connect`, `view_api`, `predict`, `handle_file`.
+  <https://www.npmjs.com/package/@gradio/client>
+- Demonun olay zinciri (`src/depth_anything_3/app/gradio_app.py`): görseller yüklenince
+  `handle_uploads(input_video, input_images, s_time_interval)` bir sunucu klasörü döndürür;
+  "Reconstruct" düğmesi `gradio_demo(target_dir, show_cam, filter_black_bg, filter_white_bg,
+  process_res_method, save_percentage, num_max_points, infer_gs, ref_view_strategy,
+  gs_trj_mode, gs_video_quality)` çağırır ve ilk çıktı `scene.glb`'dir
+  (`modules/event_handlers.py`).
+- **Test edilmedi:** canlı demoya gerçek bir çağrı. Geliştirme ortamının ağı huggingface.co'yu
+  engelliyor.
