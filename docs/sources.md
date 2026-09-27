@@ -114,3 +114,12 @@ gerçek bir mobilyanın ölçüsü bilindiğinde o yazılmalı.
   (`modules/event_handlers.py`).
 - **Test edilmedi:** canlı demoya gerçek bir çağrı. Geliştirme ortamının ağı huggingface.co'yu
   engelliyor.
+
+## ZeroGPU kotası
+
+Demo her çalıştırmada 180 s ZeroGPU istiyor (Umut'un aldığı hata: "180s requested vs. 0s
+left"). Hugging Face'in belgesine göre günlük hak: girişsiz 2 dk, ücretsiz hesap 5 dk, PRO
+40 dk (artırılabilir), Enterprise 60 dk; aşımı önceden ödenmiş kredi, 10 dk başına 1 $.
+Yani girişsiz hiç çalışmaz, ücretsiz hesapla günde bir oda. Uygulama bu yüzden bir Hugging
+Face anahtarı (Read) alıp `Client.connect(space, {token})` ile gönderiyor.
+<https://github.com/huggingface/hub-docs/blob/main/docs/hub/spaces-zerogpu.md>

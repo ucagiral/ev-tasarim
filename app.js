@@ -6,7 +6,7 @@ import { View3D } from "./view3d.js";
 import * as store from "./store.js";
 import * as layers from "./layers.js";
 import { isImageFile, prepareImage } from "./media.js";
-import { reconstruct } from "./reconstruct.js";
+import { reconstruct, getToken, setToken, isQuotaError } from "./reconstruct.js";
 
 const E = globalThis.EvEngine;
 const $ = (s, r = document) => r.querySelector(s);
@@ -155,6 +155,7 @@ function renderTab() {
   const body = $("#tab-body");
   const focusId = document.activeElement && body.contains(document.activeElement) ? document.activeElement.id : null;
   body.innerHTML = ({ rooms: tabRooms, furniture: tabFurniture, styles: tabStyles, variants: tabVariants, photos: tabPhotos, layers: tabLayers })[S.tab]();
+  if (S.tab === "photos") bindToken(body);
   if (focusId && document.getElementById(focusId)) document.getElementById(focusId).focus();
 }
 
@@ -309,6 +310,7 @@ function tabPhotos() {
     <div class="photos">${grid || `<p class="hint" style="grid-column:1/-1">Burada fotoğraf yok. Dosyaları sayfanın üstüne sürükleyip bırakabilirsiniz de.</p>`}</div>
     ${photos.length ? `<button class="primary" data-act="auto-room" style="width:100%;margin:8px 0">${S.photoRoomId ? "Bu odayı fotoğraflardan yeniden ölç" : "Bu fotoğraflardan oda oluştur"}</button>` : ""}
     <p class="hint"><b>Odanın fotoğraflarını ekleyin; oda kendiliğinden oluşur.</b> Hiçbir şey seçmeniz ya da işaretlemeniz gerekmez. Her yönden, birbiriyle örtüşen 5–20 fotoğraf en iyisi; duvar dipleri ve tavan görünsün. Fotoğraflar Depth Anything 3'ün çevrimiçi demosuna gönderilir, 3B'den odanın eni, derinliği ve tavanı çıkarılır.</p>
+    <details class="hint"${getToken() ? "" : " open"}><summary>Hugging Face anahtarı ${getToken() ? "(kayıtlı)" : "(gerekli)"}</summary>${tokenHelp()}</details>
     <details class="hint"><summary>Otomatik çalışmazsa</summary>
     <p class="hint"><a href="https://huggingface.co/spaces/depth-anything/depth-anything-3" target="_blank" rel="noopener">Depth Anything 3 demosunda</a> fotoğrafları kendiniz yükleyip indirdiğiniz <b>scene.glb</b>'yi buraya bırakın; oda yine kendiliğinden çıkar.</p>
     <label class="btn" style="display:block;text-align:center;margin:8px 0">scene.glb seç<input type="file" id="scan-input" accept=".glb,.gltf,.ply,model/gltf-binary" hidden></label>
@@ -1023,7 +1025,10 @@ async function autoRoomFromPhotos(photos, targetRoomId = null) {
     const box = document.getElementById("auto-room");
     const msg = "Oda oluşturulamadı: " + (e && e.message ? e.message : e);
     if (box) {
-      box.innerHTML = `<h3>Oda oluşturulamadı</h3><p class="pr-err">${esc(msg)}</p><button class="primary" id="ar-retry">Tekrar dene</button>`;
+      box.innerHTML = `<h3>Oda oluşturulamadı</h3><p class="pr-err">${esc(msg)}</p>
+        ${isQuotaError(msg) ? tokenHelp() : ""}
+        <button class="primary" id="ar-retry">Tekrar dene</button>`;
+      bindToken(box);
       document.getElementById("ar-retry").onclick = () => autoRoomFromPhotos(photos, targetRoomId);
       if (!$("#modal").open) $("#modal").showModal();
     } else toast(msg, true);
@@ -1111,6 +1116,32 @@ function openScanRoom(L) {
       toast(`${room.name} eklendi: ${d.w} × ${d.d} cm (tahmini). Kapı ve pencereleri Odalar'dan ekleyebilirsiniz.`);
     };
   }, 30);
+}
+
+// Demo her oda için 180 s GPU istiyor; girişsiz günlük hak 2 dk olduğundan anahtar şart.
+function tokenHelp() {
+  const has = !!getToken();
+  return `<div class="token-box">
+    <p class="hint">Demo her oda için 3 dakika GPU kullanıyor. Girişsiz günlük hak 2 dakika olduğu için <b>ücretsiz bir Hugging Face hesabının anahtarı</b> gerekiyor (ücretsiz hesap: günde 5 dk ≈ 1 oda; PRO: 40 dk ≈ 13 oda).</p>
+    <ol class="hint">
+      <li><a href="https://huggingface.co/join" target="_blank" rel="noopener">Ücretsiz hesap açın</a> (varsa atlayın).</li>
+      <li><a href="https://huggingface.co/settings/tokens/new?tokenType=read" target="_blank" rel="noopener">Anahtar oluşturun</a>: türü <b>Read</b>, bir ad verip "Create token"; <code>hf_</code> ile başlayan metni kopyalayın.</li>
+      <li>Buraya yapıştırıp kaydedin:</li>
+    </ol>
+    <div class="row"><input type="password" class="hf-token" placeholder="${has ? "kayıtlı — değiştirmek için yapıştırın" : "hf_…"}" autocomplete="off" style="flex:1">
+      <button class="hf-save">Kaydet</button>${has ? `<button class="hf-clear danger">Sil</button>` : ""}</div>
+    <p class="hint">Anahtar yalnız bu tarayıcıda saklanır ve yalnız Hugging Face'e gönderilir.</p></div>`;
+}
+
+function bindToken(root) {
+  root.querySelectorAll(".hf-save").forEach((b) => (b.onclick = () => {
+    const v = b.parentElement.querySelector(".hf-token").value.trim();
+    if (!/^hf_[A-Za-z0-9]{20,}$/.test(v)) { toast("Anahtar hf_ ile başlamalı; tamamını kopyaladığınızdan emin olun.", true); return; }
+    setToken(v);
+    toast("Anahtar kaydedildi.");
+    if (S.tab === "photos") renderTab();
+  }));
+  root.querySelectorAll(".hf-clear").forEach((b) => (b.onclick = () => { setToken(""); toast("Anahtar silindi."); if (S.tab === "photos") renderTab(); }));
 }
 
 function stripUrl(p) { const { url, ...rest } = p; return rest; }
