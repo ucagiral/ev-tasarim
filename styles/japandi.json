@@ -1,0 +1,88 @@
+{
+  "id": "japandi",
+  "name": "Japandi",
+  "description": "Japon sadeliği ile İskandinav sıcaklığı: açık meşe, doğal keten, alçak mobilya, bol boşluk.",
+  "floor": {
+    "type": "wood",
+    "color": "#c9a97c",
+    "color2": "#b8966a"
+  },
+  "walls": "#ece6dc",
+  "ceiling": "#f4f1eb",
+  "palette": {
+    "wood": "#b48a5e",
+    "fabric": "#d9d0c1",
+    "metal": "#2b2b2b",
+    "accent": "#5f6b57",
+    "accent2": "#8c6f56"
+  },
+  "light": {
+    "kelvin": 2900,
+    "intensity": 1
+  },
+  "sets": {
+    "salon": [
+      "rug-large",
+      "sofa3",
+      "coffee-table",
+      "pouf",
+      "tv-unit",
+      "plant"
+    ],
+    "yatak": [
+      "rug-medium",
+      "bed-low",
+      "nightstand",
+      "nightstand",
+      "wardrobe",
+      "plant-small"
+    ],
+    "yemek": [
+      "rug-large",
+      "dining6",
+      "chair",
+      "chair",
+      "chair",
+      "chair",
+      "sideboard"
+    ],
+    "calisma": [
+      "desk",
+      "office-chair",
+      "bookshelf",
+      "bookshelf",
+      "plant-small"
+    ],
+    "mutfak": [
+      "kitchen-run",
+      "fridge",
+      "island",
+      "bar-stool",
+      "bar-stool"
+    ],
+    "banyo": [
+      "bathtub",
+      "vanity",
+      "toilet"
+    ],
+    "cocuk": [
+      "rug-round",
+      "bed-single",
+      "desk",
+      "chair",
+      "bookshelf"
+    ],
+    "antre": [
+      "shoe-cabinet",
+      "bench",
+      "mirror"
+    ]
+  },
+  "materials": [
+    "Açık meşe veya dişbudak ahşap",
+    "Keten ve pamuk döşeme",
+    "Kireç/mat duvar boyası, kırık beyaz",
+    "Siyah mat metal detay"
+  ],
+  "aiPrompt": "japandi interior, light oak wood, linen upholstery, low furniture, muted earthy palette, minimal decor, soft diffused daylight"
+}

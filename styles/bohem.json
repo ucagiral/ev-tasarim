@@ -1,0 +1,90 @@
+{
+  "id": "bohem",
+  "name": "Bohem",
+  "description": "Desenli halılar, rattan, bitkiler ve sıcak toprak tonları; katmanlı ve rahat.",
+  "floor": {
+    "type": "wood",
+    "color": "#b0845a",
+    "color2": "#a0784f"
+  },
+  "walls": "#f1e3cf",
+  "ceiling": "#f8efe2",
+  "palette": {
+    "wood": "#9b6b3d",
+    "fabric": "#c8784a",
+    "metal": "#a88a52",
+    "accent": "#2f6f5e",
+    "accent2": "#d9a441"
+  },
+  "light": {
+    "kelvin": 2600,
+    "intensity": 0.95
+  },
+  "sets": {
+    "salon": [
+      "rug-large",
+      "sofa3",
+      "coffee-table",
+      "pouf",
+      "pouf",
+      "plant",
+      "plant",
+      "floor-lamp"
+    ],
+    "yatak": [
+      "rug-medium",
+      "bed-double",
+      "nightstand",
+      "nightstand",
+      "wardrobe",
+      "plant-small"
+    ],
+    "yemek": [
+      "rug-large",
+      "dining6",
+      "chair",
+      "chair",
+      "chair",
+      "chair",
+      "sideboard"
+    ],
+    "calisma": [
+      "desk",
+      "office-chair",
+      "bookshelf",
+      "bookshelf",
+      "plant-small"
+    ],
+    "mutfak": [
+      "kitchen-run",
+      "fridge",
+      "island",
+      "bar-stool",
+      "bar-stool"
+    ],
+    "banyo": [
+      "bathtub",
+      "vanity",
+      "toilet"
+    ],
+    "cocuk": [
+      "rug-round",
+      "bed-single",
+      "desk",
+      "chair",
+      "bookshelf"
+    ],
+    "antre": [
+      "shoe-cabinet",
+      "bench",
+      "mirror"
+    ]
+  },
+  "materials": [
+    "Rattan ve hasır",
+    "Kilim ve desenli halılar",
+    "Terrakota ve hardal tekstil",
+    "Bol bitki"
+  ],
+  "aiPrompt": "bohemian interior, layered kilim rugs, rattan furniture, many plants, terracotta and mustard textiles, eclectic warm cozy"
+}

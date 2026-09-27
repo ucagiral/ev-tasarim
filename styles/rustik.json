@@ -1,0 +1,89 @@
+{
+  "id": "rustik",
+  "name": "Rustik",
+  "description": "Kaba yontulmuş ahşap, taş, yün ve koyu sıcak tonlar; dağ evi hissi.",
+  "floor": {
+    "type": "wood",
+    "color": "#7a5234",
+    "color2": "#6b472d"
+  },
+  "walls": "#e3d6c2",
+  "ceiling": "#8b6a4a",
+  "palette": {
+    "wood": "#6e4a2e",
+    "fabric": "#8a7a66",
+    "metal": "#3a3330",
+    "accent": "#7d2e25",
+    "accent2": "#556b4a"
+  },
+  "light": {
+    "kelvin": 2500,
+    "intensity": 0.9
+  },
+  "sets": {
+    "salon": [
+      "rug-large",
+      "sofa3",
+      "coffee-table",
+      "armchair",
+      "tv-unit",
+      "floor-lamp",
+      "plant"
+    ],
+    "yatak": [
+      "rug-medium",
+      "bed-double",
+      "nightstand",
+      "nightstand",
+      "wardrobe",
+      "plant-small"
+    ],
+    "yemek": [
+      "rug-large",
+      "dining6",
+      "chair",
+      "chair",
+      "chair",
+      "chair",
+      "sideboard"
+    ],
+    "calisma": [
+      "desk",
+      "office-chair",
+      "bookshelf",
+      "bookshelf",
+      "plant-small"
+    ],
+    "mutfak": [
+      "kitchen-run",
+      "fridge",
+      "island",
+      "bar-stool",
+      "bar-stool"
+    ],
+    "banyo": [
+      "bathtub",
+      "vanity",
+      "toilet"
+    ],
+    "cocuk": [
+      "rug-round",
+      "bed-single",
+      "desk",
+      "chair",
+      "bookshelf"
+    ],
+    "antre": [
+      "shoe-cabinet",
+      "bench",
+      "mirror"
+    ]
+  },
+  "materials": [
+    "Masif, kaba yüzeyli ahşap",
+    "Doğal taş",
+    "Yün battaniye ve ekose",
+    "Dövme demir"
+  ],
+  "aiPrompt": "rustic cabin interior, rough hewn timber, natural stone, wool throws, wrought iron, warm fireplace glow"
+}

@@ -1,0 +1,89 @@
+{
+  "id": "mid-century",
+  "name": "Mid-century modern",
+  "description": "1950-60'lar: ince ayaklı tik mobilya, hardal ve petrol mavisi vurgular.",
+  "floor": {
+    "type": "wood",
+    "color": "#a8703f",
+    "color2": "#9a6536"
+  },
+  "walls": "#f0ebe1",
+  "ceiling": "#faf7f0",
+  "palette": {
+    "wood": "#8a4f25",
+    "fabric": "#2f5d62",
+    "metal": "#b08d57",
+    "accent": "#d49b2a",
+    "accent2": "#b5532f"
+  },
+  "light": {
+    "kelvin": 2800,
+    "intensity": 1
+  },
+  "sets": {
+    "salon": [
+      "rug-large",
+      "sofa3",
+      "coffee-table",
+      "armchair",
+      "tv-unit",
+      "floor-lamp",
+      "plant"
+    ],
+    "yatak": [
+      "rug-medium",
+      "bed-double",
+      "nightstand",
+      "nightstand",
+      "wardrobe",
+      "plant-small"
+    ],
+    "yemek": [
+      "rug-large",
+      "dining6",
+      "chair",
+      "chair",
+      "chair",
+      "chair",
+      "sideboard"
+    ],
+    "calisma": [
+      "desk",
+      "office-chair",
+      "bookshelf",
+      "bookshelf",
+      "plant-small"
+    ],
+    "mutfak": [
+      "kitchen-run",
+      "fridge",
+      "island",
+      "bar-stool",
+      "bar-stool"
+    ],
+    "banyo": [
+      "bathtub",
+      "vanity",
+      "toilet"
+    ],
+    "cocuk": [
+      "rug-round",
+      "bed-single",
+      "desk",
+      "chair",
+      "bookshelf"
+    ],
+    "antre": [
+      "shoe-cabinet",
+      "bench",
+      "mirror"
+    ]
+  },
+  "materials": [
+    "Tik veya ceviz, ince konik ayaklar",
+    "Petrol mavisi ve hardal döşeme",
+    "Pirinç detay",
+    "Geometrik desenler"
+  ],
+  "aiPrompt": "mid-century modern interior, teak furniture with tapered legs, teal and mustard upholstery, brass accents, geometric patterns"
+}

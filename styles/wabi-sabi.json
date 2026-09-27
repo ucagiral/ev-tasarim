@@ -1,0 +1,87 @@
+{
+  "id": "wabi-sabi",
+  "name": "Wabi-sabi",
+  "description": "Kusurun güzelliği: kireç sıva, ham ahşap, el yapımı seramik, sessiz tonlar.",
+  "floor": {
+    "type": "stone",
+    "color": "#b7ab98",
+    "color2": "#a99d8a"
+  },
+  "walls": "#d8cfc1",
+  "ceiling": "#e2dacd",
+  "palette": {
+    "wood": "#8f7a62",
+    "fabric": "#cbbfa9",
+    "metal": "#4a443d",
+    "accent": "#6b6255",
+    "accent2": "#a38c6c"
+  },
+  "light": {
+    "kelvin": 2700,
+    "intensity": 0.85
+  },
+  "sets": {
+    "salon": [
+      "rug-medium",
+      "sofa2",
+      "coffee-table",
+      "pouf",
+      "plant"
+    ],
+    "yatak": [
+      "rug-medium",
+      "bed-double",
+      "nightstand",
+      "nightstand",
+      "wardrobe",
+      "plant-small"
+    ],
+    "yemek": [
+      "rug-large",
+      "dining6",
+      "chair",
+      "chair",
+      "chair",
+      "chair",
+      "sideboard"
+    ],
+    "calisma": [
+      "desk",
+      "office-chair",
+      "bookshelf",
+      "bookshelf",
+      "plant-small"
+    ],
+    "mutfak": [
+      "kitchen-run",
+      "fridge",
+      "island",
+      "bar-stool",
+      "bar-stool"
+    ],
+    "banyo": [
+      "bathtub",
+      "vanity",
+      "toilet"
+    ],
+    "cocuk": [
+      "rug-round",
+      "bed-single",
+      "desk",
+      "chair",
+      "bookshelf"
+    ],
+    "antre": [
+      "shoe-cabinet",
+      "bench",
+      "mirror"
+    ]
+  },
+  "materials": [
+    "Kireç veya kil sıva",
+    "Ham, işlenmemiş ahşap",
+    "El yapımı seramik",
+    "Doğal taş zemin"
+  ],
+  "aiPrompt": "wabi-sabi interior, lime plaster walls, raw untreated wood, handmade ceramics, muted earthy tones, imperfect textures, calm"
+}

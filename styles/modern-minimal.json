@@ -1,0 +1,87 @@
+{
+  "id": "modern-minimal",
+  "name": "Modern minimal",
+  "description": "Düz yüzeyler, gizli kulplar, az sayıda parça; gri-beyaz tonlar.",
+  "floor": {
+    "type": "concrete",
+    "color": "#cfcfcc",
+    "color2": "#c2c2bf"
+  },
+  "walls": "#f2f2f0",
+  "ceiling": "#fafafa",
+  "palette": {
+    "wood": "#8a7560",
+    "fabric": "#9a9a9a",
+    "metal": "#1e1e1e",
+    "accent": "#3a3a3a",
+    "accent2": "#c7c7c2"
+  },
+  "light": {
+    "kelvin": 4000,
+    "intensity": 1.1
+  },
+  "sets": {
+    "salon": [
+      "rug-medium",
+      "sofa3",
+      "coffee-table",
+      "tv-unit",
+      "floor-lamp"
+    ],
+    "yatak": [
+      "rug-medium",
+      "bed-double",
+      "nightstand",
+      "nightstand",
+      "wardrobe",
+      "plant-small"
+    ],
+    "yemek": [
+      "rug-large",
+      "dining6",
+      "chair",
+      "chair",
+      "chair",
+      "chair",
+      "sideboard"
+    ],
+    "calisma": [
+      "desk",
+      "office-chair",
+      "bookshelf",
+      "bookshelf",
+      "plant-small"
+    ],
+    "mutfak": [
+      "kitchen-run",
+      "fridge",
+      "island",
+      "bar-stool",
+      "bar-stool"
+    ],
+    "banyo": [
+      "bathtub",
+      "vanity",
+      "toilet"
+    ],
+    "cocuk": [
+      "rug-round",
+      "bed-single",
+      "desk",
+      "chair",
+      "bookshelf"
+    ],
+    "antre": [
+      "shoe-cabinet",
+      "bench",
+      "mirror"
+    ]
+  },
+  "materials": [
+    "Mikro beton veya büyük format gri seramik",
+    "Mat lake dolap kapakları",
+    "Açık gri duvar boyası",
+    "Siyah alüminyum detay"
+  ],
+  "aiPrompt": "modern minimalist interior, handleless cabinetry, microcement floor, monochrome grey and white palette, clean lines, uncluttered"
+}
