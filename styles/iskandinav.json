@@ -1,0 +1,89 @@
+{
+  "id": "iskandinav",
+  "name": "İskandinav",
+  "description": "Beyaz duvarlar, açık ahşap, yün ve pastel vurgular; aydınlık ve işlevsel.",
+  "floor": {
+    "type": "wood",
+    "color": "#e0cba8",
+    "color2": "#d4bd97"
+  },
+  "walls": "#f5f5f2",
+  "ceiling": "#ffffff",
+  "palette": {
+    "wood": "#d8bf95",
+    "fabric": "#b9bec4",
+    "metal": "#d9d9d9",
+    "accent": "#8fa9b8",
+    "accent2": "#e3b9a8"
+  },
+  "light": {
+    "kelvin": 3200,
+    "intensity": 1.1
+  },
+  "sets": {
+    "salon": [
+      "rug-large",
+      "sofa3",
+      "coffee-table",
+      "armchair",
+      "tv-unit",
+      "floor-lamp",
+      "plant"
+    ],
+    "yatak": [
+      "rug-medium",
+      "bed-double",
+      "nightstand",
+      "nightstand",
+      "wardrobe",
+      "plant-small"
+    ],
+    "yemek": [
+      "rug-large",
+      "dining6",
+      "chair",
+      "chair",
+      "chair",
+      "chair",
+      "sideboard"
+    ],
+    "calisma": [
+      "desk",
+      "office-chair",
+      "bookshelf",
+      "bookshelf",
+      "plant-small"
+    ],
+    "mutfak": [
+      "kitchen-run",
+      "fridge",
+      "island",
+      "bar-stool",
+      "bar-stool"
+    ],
+    "banyo": [
+      "bathtub",
+      "vanity",
+      "toilet"
+    ],
+    "cocuk": [
+      "rug-round",
+      "bed-single",
+      "desk",
+      "chair",
+      "bookshelf"
+    ],
+    "antre": [
+      "shoe-cabinet",
+      "bench",
+      "mirror"
+    ]
+  },
+  "materials": [
+    "Beyazlatılmış meşe veya huş",
+    "Yün ve örgü tekstil",
+    "Saf beyaz mat duvar boyası",
+    "Pastel mavi ve pudra vurgular"
+  ],
+  "aiPrompt": "scandinavian interior, white walls, light birch wood, wool textiles, pastel accents, bright airy natural light"
+}

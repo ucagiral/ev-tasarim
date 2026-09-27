@@ -1,0 +1,14 @@
+{
+  "name": "ev-tasarim",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tools/selftest.mjs",
+    "smoke": "node tools/smoke.mjs",
+    "serve": "npx http-server -c-1 -p 8080 ."
+  },
+  "devDependencies": {
+    "playwright": "1.56.1",
+    "three": "0.186.1"
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "id": "akdeniz",
+  "name": "Akdeniz",
+  "description": "Beyaz badana, terrakota karo, mavi vurgular ve doğal lif.",
+  "floor": {
+    "type": "tile",
+    "color": "#c9754b",
+    "color2": "#b9683f"
+  },
+  "walls": "#faf7f0",
+  "ceiling": "#ffffff",
+  "palette": {
+    "wood": "#a47449",
+    "fabric": "#ede4d3",
+    "metal": "#3b3b3b",
+    "accent": "#2d5d8a",
+    "accent2": "#6d8f5a"
+  },
+  "light": {
+    "kelvin": 3300,
+    "intensity": 1.15
+  },
+  "sets": {
+    "salon": [
+      "rug-large",
+      "sofa3",
+      "coffee-table",
+      "armchair",
+      "tv-unit",
+      "floor-lamp",
+      "plant"
+    ],
+    "yatak": [
+      "rug-medium",
+      "bed-double",
+      "nightstand",
+      "nightstand",
+      "wardrobe",
+      "plant-small"
+    ],
+    "yemek": [
+      "rug-large",
+      "dining6",
+      "chair",
+      "chair",
+      "chair",
+      "chair",
+      "sideboard"
+    ],
+    "calisma": [
+      "desk",
+      "office-chair",
+      "bookshelf",
+      "bookshelf",
+      "plant-small"
+    ],
+    "mutfak": [
+      "kitchen-run",
+      "fridge",
+      "island",
+      "bar-stool",
+      "bar-stool"
+    ],
+    "banyo": [
+      "bathtub",
+      "vanity",
+      "toilet"
+    ],
+    "cocuk": [
+      "rug-round",
+      "bed-single",
+      "desk",
+      "chair",
+      "bookshelf"
+    ],
+    "antre": [
+      "shoe-cabinet",
+      "bench",
+      "mirror"
+    ]
+  },
+  "materials": [
+    "Terrakota karo",
+    "Kireç badana beyaz duvar",
+    "Lacivert/ege mavisi vurgu",
+    "Hasır ve keten"
+  ],
+  "aiPrompt": "mediterranean interior, whitewashed lime plaster walls, terracotta floor tiles, blue accents, natural fibers, bright sunlight"
+}

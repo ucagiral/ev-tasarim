@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ev Tasarım</title>
+<meta name="description" content="Evin planını çiz, stil seç, 3B'de gez.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M4 15 16 5l12 10v12H4z' fill='%23b48a5e'/><rect x='13' y='18' width='6' height='9' fill='%23fff'/></svg>">
+<link rel="stylesheet" href="app.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
+  }
+}
+</script>
+<script src="engine.js"></script>
+<script type="module" src="app.js"></script>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><svg viewBox="0 0 32 32" width="22" height="22"><path d="M4 15 16 5l12 10v12H4z" fill="currentColor"/></svg><input id="project-name" aria-label="Proje adı" spellcheck="false"></div>
+  <div class="group">
+    <button id="undo" title="Geri al (Ctrl+Z)">↶</button>
+    <button id="redo" title="Yinele (Ctrl+Y)">↷</button>
+  </div>
+  <div class="group seg" id="layout-seg" role="group" aria-label="Görünüm">
+    <button data-layout="plan">2B</button>
+    <button data-layout="split">İkisi</button>
+    <button data-layout="3d">3B</button>
+  </div>
+  <div class="group seg" id="mode-seg" role="group" aria-label="3B kipi">
+    <button data-mode="orbit" title="Fareyle döndür, tekerlekle yakınlaş">Döndür</button>
+    <button data-mode="walk" title="W A S D ile yürü, fareyle bak, Esc ile çık">Yürü</button>
+  </div>
+  <label class="check"><input type="checkbox" id="cutaway" checked> Önündeki duvarı sil</label>
+  <div class="spacer"></div>
+  <button id="fit" title="Planı ekrana sığdır">Sığdır</button>
+  <button id="shot" title="3B görünümü PNG olarak indir">Görüntü</button>
+  <details class="menu">
+    <summary>Dosya</summary>
+    <div class="menu-body">
+      <button id="export">Dışa aktar (JSON)</button>
+      <label class="btn">İçe aktar<input type="file" id="import" accept="application/json,.json" hidden></label>
+      <button id="new-project">Boş proje</button>
+      <button id="demo-project">Örnek ev</button>
+      <p class="hint">Proje ve fotoğraflar yalnız bu tarayıcıda saklanır. Dışa aktarma fotoğrafları içermez.</p>
+    </div>
+  </details>
+</header>
+
+<main class="layout split" id="layout">
+  <aside class="left">
+    <nav class="tabs" id="tabs">
+      <button data-tab="rooms" class="active">Odalar</button>
+      <button data-tab="furniture">Mobilya</button>
+      <button data-tab="styles">Stil</button>
+      <button data-tab="variants">Varyant</button>
+      <button data-tab="photos">Fotoğraf</button>
+    </nav>
+    <div class="tab-body" id="tab-body"></div>
+  </aside>
+
+  <section class="stage">
+    <div class="pane plan-pane" id="plan"><div class="pane-hint" id="plan-hint"></div></div>
+    <div class="pane view-pane" id="view"><div class="pane-hint" id="view-hint"></div></div>
+  </section>
+
+  <aside class="right" id="right"></aside>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<dialog id="modal"><div id="modal-body"></div><form method="dialog"><button class="primary">Kapat</button></form></dialog>
+<noscript>Bu uygulama JavaScript gerektirir.</noscript>
+</body>
+</html>

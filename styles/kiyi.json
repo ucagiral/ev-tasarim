@@ -1,0 +1,89 @@
+{
+  "id": "kiyi",
+  "name": "Kıyı",
+  "description": "Deniz kenarı: kum tonları, beyaz, açık mavi, ahşap ve keten.",
+  "floor": {
+    "type": "wood",
+    "color": "#d9c6a5",
+    "color2": "#cdb896"
+  },
+  "walls": "#f7f6f1",
+  "ceiling": "#ffffff",
+  "palette": {
+    "wood": "#c9b08a",
+    "fabric": "#eef0ee",
+    "metal": "#b5b5b0",
+    "accent": "#5b8fb0",
+    "accent2": "#c7d9df"
+  },
+  "light": {
+    "kelvin": 3500,
+    "intensity": 1.15
+  },
+  "sets": {
+    "salon": [
+      "rug-large",
+      "sofa3",
+      "coffee-table",
+      "armchair",
+      "tv-unit",
+      "floor-lamp",
+      "plant"
+    ],
+    "yatak": [
+      "rug-medium",
+      "bed-double",
+      "nightstand",
+      "nightstand",
+      "wardrobe",
+      "plant-small"
+    ],
+    "yemek": [
+      "rug-large",
+      "dining6",
+      "chair",
+      "chair",
+      "chair",
+      "chair",
+      "sideboard"
+    ],
+    "calisma": [
+      "desk",
+      "office-chair",
+      "bookshelf",
+      "bookshelf",
+      "plant-small"
+    ],
+    "mutfak": [
+      "kitchen-run",
+      "fridge",
+      "island",
+      "bar-stool",
+      "bar-stool"
+    ],
+    "banyo": [
+      "bathtub",
+      "vanity",
+      "toilet"
+    ],
+    "cocuk": [
+      "rug-round",
+      "bed-single",
+      "desk",
+      "chair",
+      "bookshelf"
+    ],
+    "antre": [
+      "shoe-cabinet",
+      "bench",
+      "mirror"
+    ]
+  },
+  "materials": [
+    "Beyazlatılmış ahşap",
+    "Beyaz ve kum rengi keten",
+    "Açık mavi vurgular",
+    "Jüt halı"
+  ],
+  "aiPrompt": "coastal interior, whitewashed wood, white linen, sand and pale blue palette, jute rug, breezy bright daylight"
+}

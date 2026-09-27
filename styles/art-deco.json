@@ -1,0 +1,89 @@
+{
+  "id": "art-deco",
+  "name": "Art deco",
+  "description": "Geometrik lüks: koyu zemin, altın metal, kadife ve mermer.",
+  "floor": {
+    "type": "herringbone",
+    "color": "#3e2c22",
+    "color2": "#33241c"
+  },
+  "walls": "#1f3b3a",
+  "ceiling": "#f2eadb",
+  "palette": {
+    "wood": "#3a2418",
+    "fabric": "#1d4d4a",
+    "metal": "#c9a24a",
+    "accent": "#8c1c3a",
+    "accent2": "#e8dcc4"
+  },
+  "light": {
+    "kelvin": 2700,
+    "intensity": 1
+  },
+  "sets": {
+    "salon": [
+      "rug-large",
+      "sofa3",
+      "coffee-table",
+      "armchair",
+      "tv-unit",
+      "floor-lamp",
+      "plant"
+    ],
+    "yatak": [
+      "rug-medium",
+      "bed-double",
+      "nightstand",
+      "nightstand",
+      "wardrobe",
+      "plant-small"
+    ],
+    "yemek": [
+      "rug-large",
+      "dining6",
+      "chair",
+      "chair",
+      "chair",
+      "chair",
+      "sideboard"
+    ],
+    "calisma": [
+      "desk",
+      "office-chair",
+      "bookshelf",
+      "bookshelf",
+      "plant-small"
+    ],
+    "mutfak": [
+      "kitchen-run",
+      "fridge",
+      "island",
+      "bar-stool",
+      "bar-stool"
+    ],
+    "banyo": [
+      "bathtub",
+      "vanity",
+      "toilet"
+    ],
+    "cocuk": [
+      "rug-round",
+      "bed-single",
+      "desk",
+      "chair",
+      "bookshelf"
+    ],
+    "antre": [
+      "shoe-cabinet",
+      "bench",
+      "mirror"
+    ]
+  },
+  "materials": [
+    "Koyu balıksırtı parke veya siyah-beyaz mermer",
+    "Altın/pirinç metal",
+    "Zümrüt ve bordo kadife",
+    "Yelpaze ve basamak geometrisi"
+  ],
+  "aiPrompt": "art deco interior, emerald velvet, gold brass geometric details, dark lacquered wood, marble, glamorous symmetrical"
+}

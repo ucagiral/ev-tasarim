@@ -1,0 +1,89 @@
+{
+  "id": "klasik",
+  "name": "Klasik",
+  "description": "Simetri, oymalı ahşap, kadife ve pirinç; sıcak ve resmi.",
+  "floor": {
+    "type": "herringbone",
+    "color": "#8b5e3c",
+    "color2": "#7a5134"
+  },
+  "walls": "#efe4d2",
+  "ceiling": "#fbf7ef",
+  "palette": {
+    "wood": "#6b3f22",
+    "fabric": "#7b2f3a",
+    "metal": "#b8923a",
+    "accent": "#2f4a3a",
+    "accent2": "#d8c7a3"
+  },
+  "light": {
+    "kelvin": 2700,
+    "intensity": 0.95
+  },
+  "sets": {
+    "salon": [
+      "rug-large",
+      "sofa3",
+      "coffee-table",
+      "armchair",
+      "tv-unit",
+      "floor-lamp",
+      "plant"
+    ],
+    "yatak": [
+      "rug-medium",
+      "bed-double",
+      "nightstand",
+      "nightstand",
+      "wardrobe",
+      "plant-small"
+    ],
+    "yemek": [
+      "rug-large",
+      "dining6",
+      "chair",
+      "chair",
+      "chair",
+      "chair",
+      "sideboard"
+    ],
+    "calisma": [
+      "desk",
+      "office-chair",
+      "bookshelf",
+      "bookshelf",
+      "plant-small"
+    ],
+    "mutfak": [
+      "kitchen-run",
+      "fridge",
+      "island",
+      "bar-stool",
+      "bar-stool"
+    ],
+    "banyo": [
+      "bathtub",
+      "vanity",
+      "toilet"
+    ],
+    "cocuk": [
+      "rug-round",
+      "bed-single",
+      "desk",
+      "chair",
+      "bookshelf"
+    ],
+    "antre": [
+      "shoe-cabinet",
+      "bench",
+      "mirror"
+    ]
+  },
+  "materials": [
+    "Balıksırtı ceviz parke",
+    "Kadife döşeme, bordo/zümrüt",
+    "Pirinç aydınlatma ve kulp",
+    "Krem duvar, çıta detaylı"
+  ],
+  "aiPrompt": "classic traditional interior, herringbone walnut parquet, velvet upholstery, brass fixtures, wall moulding, symmetrical layout, warm light"
+}
