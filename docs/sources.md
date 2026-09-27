@@ -80,3 +80,23 @@ gerçek bir mobilyanın ölçüsü bilindiğinde o yazılmalı.
   odayı ±1 cm geri çıkarıyor; ±2 px gürültüde belirsizlik aralığı gerçek ölçüyü kapsıyor.
   `smoke` three.js ile render edilmiş bir oda fotoğrafında arayüzden dokunarak 380×420 cm'lik
   odayı %4 içinde buluyor. Gerçek bir iPhone fotoğrafıyla doğruluk henüz ölçülmedi.
+
+## Bütün fotoğraflardan oda (Depth Anything 3)
+
+- **Model ve demo:** Depth Anything 3 (ByteDance Seed, Kasım 2025), herhangi sayıda
+  görüntüden kamera pozu ve derinlik; kaynağına göre VGGT'yi poz doğruluğunda ortalama
+  %44, geometride %25 geçiyor. Demonun varsayılan modeli DA3NESTED-GIANT-LARGE: çok görüşlü
+  modelle metrik modeli birleştirir, yani **metre** verir. Demo `scene.glb` üretir: nokta
+  bulutu, ilk kameranın eksenine hizalı (glTF: x sağ, y yukarı, z geri), medyanla ortalanmış;
+  dönüşüm yalnız döndürme + öteleme, ölçek korunuyor (`utils/export/glb.py`,
+  `_compute_alignment_transform_first_cam_glTF_center_by_points`).
+  <https://huggingface.co/spaces/depth-anything/depth-anything-3> ·
+  <https://github.com/ByteDance-Seed/Depth-Anything-3> ·
+  <https://arxiv.org/abs/2511.10647>
+- **Tarayıcıda çalışan çok görüşlü model yok (Eylül 2026):** VGGT'yi tarayıcıya taşıma
+  projesi henüz tarayıcıda çalışmıyor; DA3'ün tarayıcı sürümü bulunamadı.
+  <https://github.com/koernergb/vggt-in-browser>
+- **Doğrulama:** `selftest` 3.8×4.2×2.6 m'lik, 27° dönük, 8° yatık, bir duvarı seyrek,
+  dolaplı ve aykırı noktalı sentetik taramadan odayı ±5 cm buluyor. `smoke` aynı türden bir
+  nokta bulutunu GLB olarak bırakıp arayüzden 380×420×260 cm'yi ±6 cm buluyor. Gerçek bir DA3
+  çıktısıyla henüz denenmedi (bu ortam huggingface.co'ya erişemiyor).

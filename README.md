@@ -40,7 +40,27 @@ iner.
 - **Fotoğraflar:** her odaya referans fotoğrafı ekle.
 - Geri al / yinele, PNG görüntü indirme, JSON dışa/içe aktarma.
 
-## Ölçmeden oda: fotoğraftan
+## Otomatik oda: bütün fotoğraflardan (kapı gerekmez)
+
+1. [Depth Anything 3 demosunda](https://huggingface.co/spaces/depth-anything/depth-anything-3)
+   odanın fotoğraflarını yükleyin (her yönden, örtüşen 5–20 kare; duvar dipleri ve tavan
+   görünsün), çalıştırın, **scene.glb**'yi indirin. Fotoğraflar Hugging Face'e gider.
+2. Dosyayı uygulamaya bırakın (ya da Fotoğraf → "scene.glb seç"). Uygulama nokta
+   bulutundan zemini, tavanı ve duvarları kendisi bulur; en, derinlik ve tavan yüksekliğini
+   gösterir. Tavan yüksekliğini biliyorsanız yazın, bütün ölçüler ona göre ölçeklenir.
+3. "Plana oda olarak ekle". Oda "tahmini" işaretlenir; tarama katmanı gizlenir
+   (Tarama'dan açılabilir).
+
+Nasıl (`roomFromPointCloud`): yukarı yön ve zemin/tavan RANSAC ile düzlem aranarak, duvar
+yönü duvar noktalarının iz düşüm histogramının en keskin olduğu açıyla, duvar yerleri
+uçlardaki yoğunluk tepeleriyle bulunur. Varsayım: oda dikdörtgen. Az görünen duvar ve
+olağan dışı tavan yüksekliği uyarı olarak gösterilir.
+
+Uygulama fotoğrafları demoya kendisi göndermiyor: bu geliştirme ortamı huggingface.co'ya
+erişemediği için o bağlantı test edilemezdi; test edilemeyen bir yol koymak yerine dosya
+elle taşınıyor. Sonuç aynı modelden gelir.
+
+## Tek fotoğraftan, kapıyla
 
 Metreyle ölçmek gerekmez. **Fotoğraf** sekmesinde fotoğrafın **Oda çıkar** düğmesi:
 

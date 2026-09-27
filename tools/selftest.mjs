@@ -515,6 +515,62 @@ check("±2 px dokunma hatasında belirsizlik aralığı gerçek ölçüyü kapsa
   if (sp.width[1] - sp.width[0] > 120) return `aralık çok geniş: ${sp.width}`;
 });
 
+// ---------------------------------------------------------------- taramadan oda
+// Sentetik tarama: 3.8 × 4.2 × 2.6 m oda; zemin, tavan, dört duvar (biri seyrek), bir
+// dolap, gürültü ve pencereden dışarı kaçan aykırı noktalar. Sonra bütünü rastgele
+// döndürülür ve 8° yatırılır (telefon eğik tutulmuş gibi).
+function syntheticScan(seed, { tilt = 8, yaw = 27, sparseWall = true } = {}) {
+  const rand = E.seededRandom(seed), pts = [];
+  const W = 3.8, D = 4.2, Hh = 2.6, noise = () => (rand() - 0.5) * 0.02;
+  const push = (x, y, z) => pts.push(x + noise(), y + noise(), z + noise());
+  for (let i = 0; i < 20000; i++) push(rand() * W, 0, rand() * D);                 // zemin
+  for (let i = 0; i < 8000; i++) push(rand() * W, Hh, rand() * D);                  // tavan
+  for (let i = 0; i < 9000; i++) push(rand() * W, rand() * Hh, 0);                  // duvarlar
+  for (let i = 0; i < 9000; i++) push(0, rand() * Hh, rand() * D);
+  for (let i = 0; i < 9000; i++) push(W, rand() * Hh, rand() * D);
+  for (let i = 0; i < (sparseWall ? 900 : 9000); i++) push(rand() * W, rand() * Hh, D);
+  for (let i = 0; i < 3000; i++) push(1 + rand() * 1.2, rand() * 1.9, 3.6 + rand() * 0.6); // dolap
+  for (let i = 0; i < 150; i++) push(W + 0.5 + rand() * 3, 0.8 + rand() * 1.2, rand() * D); // pencereden dışarı
+  // Döndür (yaw, y ekseni) ve yatır (tilt, x ekseni), sonra ortala.
+  const cy = Math.cos(yaw * Math.PI / 180), sy = Math.sin(yaw * Math.PI / 180);
+  const ct = Math.cos(tilt * Math.PI / 180), st = Math.sin(tilt * Math.PI / 180);
+  const out = new Float32Array(pts.length);
+  for (let i = 0; i < pts.length; i += 3) {
+    let x = pts[i] - W / 2, y = pts[i + 1] - 1.3, z = pts[i + 2] - D / 2;
+    [x, z] = [cy * x + sy * z, -sy * x + cy * z];
+    [y, z] = [ct * y - st * z, st * y + ct * z];
+    out[i] = x; out[i + 1] = y; out[i + 2] = z;
+  }
+  return out;
+}
+
+check("taramadan oda: eğik ve dönük taramada en, derinlik, tavan ±5 cm", () => {
+  const r = E.roomFromPointCloud(syntheticScan(3), { rand: E.seededRandom(9) });
+  if (r.error) return r.error;
+  const dims = [r.width, r.depth].sort((a, b) => a - b);
+  if (!near(dims[0], 380, 5) || !near(dims[1], 420, 5)) return `${r.width.toFixed(1)} × ${r.depth.toFixed(1)}`;
+  if (!near(r.height, 260, 5)) return `tavan ${r.height}`;
+});
+
+check("taramadan oda: seyrek duvar uyarısı, sık duvarda uyarı yok", () => {
+  const sparse = E.roomFromPointCloud(syntheticScan(4), { rand: E.seededRandom(2) });
+  if (!sparse.warnings.some((w) => w.includes("az görünüyor"))) return "seyrek duvar söylenmedi: " + sparse.warnings;
+  const full = E.roomFromPointCloud(syntheticScan(5, { sparseWall: false }), { rand: E.seededRandom(2) });
+  if (full.warnings.length) return full.warnings.join("; ");
+});
+
+check("taramadan oda: az nokta reddedilir", () => {
+  const r = E.roomFromPointCloud(new Float32Array(300), {});
+  if (!r.error) return "kabul edildi";
+});
+
+check("kapı köşeleri: eğik çekilmiş kapıda sıralama doğru", () => {
+  // Kapı yandan: sol kenar kısa ve yüksekte, sağ kenar uzun; sağ-üst köşe sol-alttan aşağıda.
+  const bl = { x: 100, y: 500 }, br = { x: 400, y: 900 }, tr = { x: 420, y: 80 }, tl = { x: 110, y: 380 };
+  const k = E.sortRectCorners([tr, bl, tl, br]);
+  if (k.bl !== bl || k.br !== br || k.tr !== tr || k.tl !== tl) return JSON.stringify(k);
+});
+
 // ---------------------------------------------------------------- sonuç
 console.log(`${passed} geçti, ${failures.length} kaldı`);
 if (failures.length) {

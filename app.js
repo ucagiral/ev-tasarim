@@ -308,7 +308,16 @@ function tabPhotos() {
     <div class="field"><span>Oda</span><select id="photo-room" data-act="photo-room">${opts}</select></div>
     <label class="btn" style="display:block;text-align:center;margin:8px 0">Fotoğraf ekle<input type="file" id="photo-input" accept="image/*,.heic,.heif" multiple hidden></label>
     <div class="photos">${grid || `<p class="hint" style="grid-column:1/-1">Burada fotoğraf yok. Dosyaları sayfanın üstüne sürükleyip bırakabilirsiniz de.</p>`}</div>
-    <h3>Ölçmeden oda</h3>
+    <h3>Otomatik: bütün fotoğraflardan</h3>
+    <p class="hint">Kapı gerekmez. Odanın fotoğraflarından 3B nokta bulutunu <b>Depth Anything 3</b> üretir (ücretsiz çevrimiçi demo; fotoğraflar Hugging Face'e yüklenir), uygulama da ondan odanın enini, derinliğini ve tavan yüksekliğini kendisi çıkarır.</p>
+    <ol class="hint">
+      <li><a href="https://huggingface.co/spaces/depth-anything/depth-anything-3" target="_blank" rel="noopener">Depth Anything 3 demosunu açın</a>.</li>
+      <li>Odanın fotoğraflarını yükleyin: her yönden, birbiriyle örtüşen 5–20 kare; duvar diplerini ve tavanı da gösterin.</li>
+      <li>Çalıştırın; 3B görüntü çıkınca indirme simgesiyle <b>scene.glb</b> dosyasını indirin.</li>
+      <li>Dosyayı buraya bırakın ya da seçin:</li>
+    </ol>
+    <label class="btn" style="display:block;text-align:center;margin:8px 0">scene.glb seç<input type="file" id="scan-input" accept=".glb,.gltf,.ply,model/gltf-binary" hidden></label>
+    <h3>Tek fotoğraftan, kapıyla</h3>
     <p class="hint"><b>Oda çıkar</b>: fotoğrafta kapının dört köşesine ve odanın zemin köşelerine dokunursunuz; kapının yüksekliğinden odanın eni ve derinliği tahmin edilir. İyi sonuç için:</p>
     <ul class="hint">
       <li>Odanın bir köşesinden, <b>0.5x</b> (geniş açı) lensle, kapı ve karşı köşeler aynı karede olacak şekilde çekin. 1x'te genellikle sığmaz.</li>
@@ -337,7 +346,7 @@ function tabLayers() {
         <span>Yükseklik</span>${num("elev", t.elev, 1)}<span></span><span></span>
       </div>
       ${L.box ? `<p class="hint">Boyut: ${((L.box.maxX - L.box.minX) * t.scale).toFixed(2)} × ${((L.box.maxZ - L.box.minZ) * t.scale).toFixed(2)} × ${((L.box.maxY - L.box.minY) * t.scale).toFixed(2)} m</p>` : ""}`}
-      <div class="row">${L.error ? "" : `<button data-act="layer-center" data-id="${L.id}">Plana ortala</button>`}<button class="danger" data-act="layer-delete" data-id="${L.id}">Sil</button></div>
+      <div class="row">${L.error ? "" : `<button data-act="layer-center" data-id="${L.id}">Plana ortala</button>`}${!L.error && L.kind === "mesh" ? `<button data-act="layer-room" data-id="${L.id}">Oda çıkar</button>` : ""}<button class="danger" data-act="layer-delete" data-id="${L.id}">Sil</button></div>
     </div>`;
   }).join("");
   return `
@@ -413,6 +422,7 @@ async function addLayerFile(file) {
   view.hasFramed = false;
   update3d();
   toast(L.error ? L.error : "Katman eklendi: " + file.name, !!L.error);
+  return L;
 }
 
 async function setLayerTransform(L, t) {
@@ -751,6 +761,7 @@ function bindLeft() {
         openDepth(S.photos.find((x) => x.id === id));
         break;
       }
+      case "layer-room": openScanRoom(S.layers.find((x) => x.id === id)); break;
       case "layer-center": {
         const L = S.layers.find((x) => x.id === id);
         const pts = S.project.rooms.flatMap((r) => r.points);
@@ -778,7 +789,7 @@ function bindLeft() {
     const t = e.target;
     const act = t.dataset.act;
     const room = roomById(selectedRoomId());
-    if (t.id === "photo-input" || t.id === "layer-input") { const files = [...t.files]; t.value = ""; addFiles(files); return; }
+    if (t.id === "photo-input" || t.id === "layer-input" || t.id === "scan-input") { const files = [...t.files]; t.value = ""; addFiles(files, { autoRoom: t.id === "scan-input" }); return; }
     if (act && act.startsWith("layer-")) {
       const L = S.layers.find((x) => x.id === t.dataset.id);
       if (act === "layer-vis") { L.visible = t.checked; persistLayer(L); syncLayers(); }
@@ -971,7 +982,7 @@ async function addPhotos(files) {
 
 // Hangi seçiciden ya da sürükle-bırakla gelirse gelsin: görseller fotoğraf panosuna,
 // 3B dosyaları tarama katmanlarına.
-async function addFiles(files) {
+async function addFiles(files, opts = {}) {
   const images = files.filter(isImageFile);
   const scans = [];
   const rejected = [];
@@ -985,7 +996,13 @@ async function addFiles(files) {
     renderTab();
     await addPhotos(images);
   }
-  for (const f of scans) { S.tab = "layers"; await addLayerFile(f); }
+  for (const f of scans) {
+    S.tab = "layers";
+    const L = await addLayerFile(f);
+    // Depth Anything 3'ün çıktısı (scene.glb) ya da "fotoğraflardan otomatik" seçicisinden
+    // gelen dosya: odayı hemen çıkarmayı öner.
+    if (L && !L.error && L.kind === "mesh" && (opts.autoRoom || /scene\.glb$/i.test(f.name))) openScanRoom(L);
+  }
   if (rejected.length) toast("Tanınmayan dosya: " + rejected.join(", "), true);
 }
 
@@ -1015,6 +1032,63 @@ function openRoomFromPhoto(photo) {
       toast(`${room.name} eklendi: ${Math.round(result.width)} × ${Math.round(result.depth)} cm (tahmini). Planda sürükleyerek düzeltebilirsiniz.`);
     }
   });
+}
+
+// Taramadan (nokta bulutu) oda. Hesap engine.js'de; burada gösterim ve plana ekleme.
+function openScanRoom(L) {
+  const obj = L.outer && L.outer.userData.inner.children[0];
+  if (!obj) { toast("Katman açılmamış.", true); return; }
+  modal(`<div id="scan-room"><p>Tarama inceleniyor…</p></div>`);
+  setTimeout(() => {
+    const r = E.roomFromPointCloud(layers.collectPoints(obj), { rand: E.seededRandom(1) });
+    const box = document.getElementById("scan-room");
+    if (!box) return;
+    if (r.error) { box.innerHTML = `<h3>Oda çıkarılamadı</h3><p class="pr-err">${esc(r.error)}</p>`; return; }
+    const h0 = r.height != null ? Math.round(r.height) : null;
+    box.innerHTML = `
+      <h3>Taramadan tahmini oda</h3>
+      <table class="summary">
+        <tr><td>En</td><td id="sr-w"></td></tr>
+        <tr><td>Derinlik</td><td id="sr-d"></td></tr>
+        <tr><td>Tavan</td><td id="sr-h"></td></tr>
+      </table>
+      ${r.warnings.map((w) => `<p class="pr-err">${esc(w)}</p>`).join("")}
+      <div class="field"><span>Tavan yüksekliği</span><span><input type="number" id="sr-ceil" value="${h0 || 260}" min="180" max="600"> cm</span></div>
+      <p class="hint">${h0 ? "Taramadan ölçüldü. Evin gerçek tavan yüksekliğini biliyorsanız yazın: bütün ölçüler ona göre ölçeklenir." : "Tavan taramada yok; ölçü taramanın kendi ölçeğiyle. Tavan yüksekliğini yazarsanız ölçek ona göre düzeltilemez, yalnız odanın yüksekliği olur."}</p>
+      <div class="field"><span>Oda türü</span><select id="sr-kind">${Object.entries(E.ROOM_KINDS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></div>
+      <button class="primary" id="sr-add">Plana oda olarak ekle</button>`;
+    const dims = () => {
+      const ceil = +document.getElementById("sr-ceil").value || 260;
+      const k = h0 ? ceil / h0 : 1;
+      return { w: Math.round(r.width * k), d: Math.round(r.depth * k), h: Math.round(ceil) };
+    };
+    const show = () => {
+      const d = dims();
+      document.getElementById("sr-w").textContent = d.w + " cm";
+      document.getElementById("sr-d").textContent = d.d + " cm";
+      document.getElementById("sr-h").textContent = d.h + " cm";
+    };
+    show();
+    document.getElementById("sr-ceil").oninput = show;
+    document.getElementById("sr-add").onclick = () => {
+      const d = dims(), kind = document.getElementById("sr-kind").value;
+      const n = S.project.rooms.length + 1;
+      const room = E.newRectRoom(S.project, uid("oda"), (E.ROOM_KINDS[kind] || "Oda") + " " + n, kind, d.w, d.d, Math.max(180, Math.min(600, d.h)));
+      room.estimate = { source: "scan", layerId: L.id, warnings: r.warnings };
+      api.commit({ ...S.project, rooms: [...S.project.rooms, room] });
+      if (!S.project.rooms.some((x) => x.id === room.id)) return;
+      // Tarama odanın üstüne oturmadığı için (eğik, kendi ekseninde) gizlenir; Tarama'dan açılabilir.
+      L.visible = false; L.planVisible = false; persistLayer(L); syncLayers();
+      $("#modal").close();
+      S.selection = { kind: "room", id: room.id };
+      S.tab = "rooms";
+      renderAll();
+      plan.fit();
+      view.hasFramed = false;
+      update3d();
+      toast(`${room.name} eklendi: ${d.w} × ${d.d} cm (tahmini). Kapı ve pencereleri Odalar'dan ekleyebilirsiniz.`);
+    };
+  }, 30);
 }
 
 function stripUrl(p) { const { url, ...rest } = p; return rest; }
@@ -1107,7 +1181,7 @@ async function init() {
   requestAnimationFrame(() => plan.fit());
   loadPhotos();
   loadLayers();
-  window.__ev = { S, api, E, view, plan, addLayerFile, addFiles, openRoomFromPhoto }; // tarayıcı konsolundan ve duman testinden erişim için
+  window.__ev = { S, api, E, view, plan, addLayerFile, addFiles, openRoomFromPhoto, openScanRoom }; // tarayıcı konsolundan ve duman testinden erişim için
 }
 
 init().catch((e) => {

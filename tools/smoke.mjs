@@ -397,6 +397,37 @@ await step("fotoğraftan oda: sentetik odanın fotoğrafından en ve derinlik ç
   assert(room.doors === 1, "kapı eklenmedi");
 });
 
+await step("taramadan oda: scene.glb bırakılınca oda kendiliğinden çıkar", async () => {
+  // Depth Anything 3 çıktısını taklit eden nokta bulutu: 3.8 × 4.2 × 2.6 m, eğik ve dönük.
+  await ev(async () => {
+    const THREE = await import("three");
+    const { GLTFExporter } = await import("three/addons/exporters/GLTFExporter.js");
+    const rand = window.__ev.E.seededRandom(5), pts = [];
+    const W = 3.8, D = 4.2, H = 2.6, nz = () => (rand() - 0.5) * 0.02, add = (x, y, z) => pts.push(x + nz(), y + nz(), z + nz());
+    for (let i = 0; i < 15000; i++) add(rand() * W, 0, rand() * D);
+    for (let i = 0; i < 6000; i++) add(rand() * W, H, rand() * D);
+    for (let i = 0; i < 6000; i++) { add(rand() * W, rand() * H, 0); add(0, rand() * H, rand() * D); add(W, rand() * H, rand() * D); add(rand() * W, rand() * H, D); }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
+    const cloud = new THREE.Points(g, new THREE.PointsMaterial({ size: 0.01 }));
+    cloud.rotation.set(0.12, 0.5, 0); cloud.position.set(-1.9, -1.3, -2.1);
+    const glb = await new GLTFExporter().parseAsync(cloud, { binary: true });
+    const dt = new DataTransfer();
+    dt.items.add(new File([glb], "scene.glb", { type: "model/gltf-binary" }));
+    window.dispatchEvent(new DragEvent("drop", { dataTransfer: dt, bubbles: true, cancelable: true }));
+  });
+  await page.waitForSelector("#sr-add", { timeout: 30000 });
+  const txt = await ev(() => ({ w: document.getElementById("sr-w").textContent, d: document.getElementById("sr-d").textContent, h: document.getElementById("sr-h").textContent }));
+  await page.screenshot({ path: join(SHOTS, "11-scan-room.png") });
+  const dims = [parseInt(txt.w), parseInt(txt.d)].sort((a, b) => a - b);
+  assert(Math.abs(dims[0] - 380) <= 6 && Math.abs(dims[1] - 420) <= 6, JSON.stringify(txt));
+  assert(Math.abs(parseInt(txt.h) - 260) <= 6, JSON.stringify(txt));
+  const before = await ev(() => window.__ev.S.project.rooms.length);
+  await page.click("#sr-add");
+  const r = await ev(() => { const x = window.__ev.S.project.rooms.at(-1); return { n: window.__ev.S.project.rooms.length, est: x.estimate && x.estimate.source }; });
+  assert(r.n === before + 1 && r.est === "scan", JSON.stringify(r));
+});
+
 await step("kayıt yeniden yüklemede geri gelir", async () => {
   await page.waitForTimeout(600);
   const before = await ev(() => JSON.stringify(window.__ev.S.project.rooms.map((r) => r.name)));

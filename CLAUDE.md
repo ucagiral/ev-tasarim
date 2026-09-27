@@ -45,8 +45,12 @@ aralığı her zaman gösterilir. Ölçek varsayılan kapı yüksekliğinden gel
 kapısının ölçüsünü söylerse o yazılır. Umut odaları metreyle ölçmek istemiyor — bir özellik
 ölçü girmeyi şart koşmamalı. Telefonu iPhone 16 Plus: LiDAR yok, fotoğraflar HEIC.
 
-Tarama katmanları (LiDAR, model, splat) referanstır, evin kendisi değildir: odalar
-onlardan otomatik türetilmez, kullanıcı üzerine çizer. Fotoğraf derinliği görseldir; ondan
+Umut her fotoğrafta kapı olmadığını ve odanın şeklini fotoğrafların kendisinden
+çıkarılmasını istedi; gizlilik endişesi yok, "hangisi kaliteliyse". Bu yüzden asıl yol:
+Depth Anything 3 demosunun scene.glb'si → `roomFromPointCloud`. Kapı yöntemi yedek.
+
+Tarama katmanları (LiDAR, model, splat) referanstır; bir taramadan oda yalnız kullanıcı
+"Oda çıkar" dediğinde ya da scene.glb bıraktığında, "tahmini" işaretiyle türetilir. Fotoğraf derinliği görseldir; ondan
 ölçü çıkarılıp plana yazılmaz.
 
 ## 5. Kaynak göster
