@@ -6,6 +6,14 @@ const E = globalThis.EvEngine;
 export const SPACE = "depth-anything/depth-anything-3";
 const MAX_SIDE = 1600; // model zaten ~500 px'te çalışır; yüklemeyi kısaltır
 
+// Hugging Face erişim anahtarı (token). Demo her çalıştırmada 180 s ZeroGPU istiyor; girişsiz
+// günlük hak 2 dakika olduğundan anahtarsız hiç çalışmaz. Anahtar yalnız bu tarayıcıda
+// (localStorage) durur ve yalnız Hugging Face'e gönderilir.
+const TOKEN_KEY = "ev-hf-token";
+export function getToken() { try { return localStorage.getItem(TOKEN_KEY) || ""; } catch { return ""; } }
+export function setToken(t) { try { t ? localStorage.setItem(TOKEN_KEY, t.trim()) : localStorage.removeItem(TOKEN_KEY); } catch {} }
+export function isQuotaError(msg) { return /ZeroGPU quota|GPU quota/i.test(String(msg || "")); }
+
 async function shrink(blob) {
   try {
     const bmp = await createImageBitmap(blob);
@@ -31,7 +39,8 @@ export async function reconstruct(photos, onStatus) {
   const { Client, handle_file } = await import("@gradio/client");
   let app;
   try {
-    app = await Client.connect(SPACE);
+    const token = getToken();
+    app = await Client.connect(SPACE, token ? { token } : {});
   } catch (e) {
     throw new Error("demoya bağlanılamadı (kapalı ya da uykuda olabilir): " + (e.message || e));
   }

@@ -49,6 +49,9 @@ dokunulmaz: uygulama fotoğrafları Depth Anything 3'ün ücretsiz çevrimiçi d
 yüksekliğini çıkarır ve odayı plana ekler ("tahmini" işaretli). Fotoğraflar o odaya bağlanır.
 
 - İyi sonuç: her yönden, birbiriyle örtüşen 5–20 fotoğraf; duvar dipleri ve tavan görünsün.
+- **Hugging Face anahtarı gerekli:** demo her oda için 3 dk GPU istiyor, girişsiz günlük hak
+  2 dk. Ücretsiz hesabın anahtarıyla günde 5 dk (≈1 oda), PRO ile 40 dk. Anahtar Fotoğraf
+  sekmesinde bir kez girilir, yalnız bu tarayıcıda saklanır.
 - Fotoğraflar Hugging Face'e gider (Umut'un kararı). Demo meşgulse ya da kotası dolmuşsa
   neden gösterilir ve "Tekrar dene" çıkar.
 - Bir odanın grubundaki fotoğraflarla "Bu odayı fotoğraflardan yeniden ölç" o odayı

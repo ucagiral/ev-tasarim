@@ -216,3 +216,4 @@ dialog.wide { width: min(1400px, 96vw); margin: 2vh auto auto; max-height: 96vh;
 .pr-err { color: var(--bad); font-size: 13px; }
 .pr-step { font-size: 14px; }
 @media (max-width: 900px) { .pr { grid-template-columns: 1fr; } }
+.token-box { border: 1px solid var(--line); border-radius: 6px; padding: 8px; margin: 8px 0; }

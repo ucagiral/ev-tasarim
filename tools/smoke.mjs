@@ -449,6 +449,24 @@ await step("otomatik: demo hata verirse nedeni ve Tekrar dene gösterilir", asyn
   await ev(() => { window.__evNoAutoRoom = true; delete window.__evReconstruct; });
 });
 
+await step("otomatik: kota hatasında anahtar alanı çıkar, anahtar kaydedilir", async () => {
+  await ev(() => { window.__evNoAutoRoom = false; window.__evReconstruct = async () => { throw new Error("You have exceeded your ZeroGPU quota (180s requested vs. 0s left). (sahte)"); }; });
+  await page.click("#tabs [data-tab=photos]");
+  await page.selectOption("#photo-room", "");
+  const png = await ev(async () => {
+    const c = document.createElement("canvas"); c.width = 10; c.height = 10;
+    return Array.from(new Uint8Array(await (await new Promise((r) => c.toBlob(r))).arrayBuffer()));
+  });
+  await page.setInputFiles("#photo-input", { name: "q.png", mimeType: "image/png", buffer: Buffer.from(png) });
+  await page.waitForSelector("#auto-room .hf-token", { timeout: 15000 });
+  await page.fill("#auto-room .hf-token", "hf_" + "a".repeat(34));
+  await page.click("#auto-room .hf-save");
+  const saved = await ev(() => localStorage.getItem("ev-hf-token"));
+  assert(saved === "hf_" + "a".repeat(34), "anahtar kaydedilmedi: " + saved);
+  await page.click("dialog[open] form button.primary");
+  await ev(() => { localStorage.removeItem("ev-hf-token"); window.__evNoAutoRoom = true; delete window.__evReconstruct; });
+});
+
 await step("kayıt yeniden yüklemede geri gelir", async () => {
   await page.waitForTimeout(600);
   const before = await ev(() => JSON.stringify(window.__ev.S.project.rooms.map((r) => r.name)));
